@@ -1,0 +1,33 @@
+x_train can be load with 
+$python3.9.6
+	>>>import numpy
+	>>>x_train = numpy.load('x_train.npy')
+the columns are:
+'RRS_412','RRS_442','RRS_490','RRS_510','RRS_555','Edif_412','Edif_442','Edif_490','Edif_510','Edif_555','Edir_412','Edir_442',/
+'Edir_490','Edir_510','Edir_555','lambda_412','lambda_442','lambda_490','lambda_510','lambda_555','zenith','PAR','chla_first_run','nap_first_run','cdom_first_run','date'
+
+x_train contain the first 90 percent of the total data. 
+x_test contain the last 90 percent of the total data. 
+
+y_train can be load with
+$python3.9.6
+        >>>import numpy
+        >>>y_train = numpy.load('y_train.npy')
+the columns are:
+'chla','kd412','kd442','kd490','kd510','kd555','bbp442','bbp490','bbp555'
+
+x_data_all and y_data_all have the same columns as x_tran and y_train, but contains the train and test data. 
+
+
+#################################################################################################################################
+
+x_data
+
+has all the data available for the columns
+'RRS_412','RRS_442','RRS_490','RRS_510','RRS_555','Edif_412','Edif_442','Edif_490','Edif_510','Edif_555','Edir_412','Edir_442',/
+'Edir_490','Edir_510','Edir_555','zenith','PAR'
+
+The date is included in a different file called dates.npy, and this dosent include initial conditions. 
+
+x_data_no_off is x_data, but getting rid of all the values for which zenith was zero, because is imposible for italy (latitude 40).
+

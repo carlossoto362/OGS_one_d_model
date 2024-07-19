@@ -1,0 +1,9 @@
+s_e.npy is the measurement error covariance matrix of the fordward function, R^OBS_lambda 
+$python3.9.6
+        >>>import numpy
+        >>>s_e = numpy.load('s_e.npy')
+
+s_a.npy is the a_priori covariance matrix (computed with the output of the maximun likelihood aproach). 
+x_a.npy is the a_priori mean vector (computed with the output of the maximun likelihood aproach).
+
+x_a is a vector representing chla, nap, cdom. 
