@@ -1,0 +1,679 @@
+#!/usr/bin/env python
+
+import matplotlib.pyplot as plt
+import math
+import numpy as np
+import torch
+from torch import nn
+from torchvision.transforms import ToTensor
+from torch.utils.data import DataLoader
+from datetime import datetime, timedelta
+import pandas as pd
+import os
+import scipy
+from scipy import stats
+import time
+import torch.multiprocessing as mp
+from torch.nn.parallel import DistributedDataParallel as DDP
+import tempfile
+import torch.distributed as dist
+import sys
+from sklearn.linear_model import LinearRegression
+from sklearn.decomposition import PCA
+from sklearn.cluster import KMeans
+import umap
+import pickle
+
+import warnings
+
+from ModelOnePointFour import *
+
+from multiprocessing.pool import Pool
+import matplotlib as mpl
+
+#lets start by analysing the data. Intrinsic dimension,
+
+#simple analisis shows that x_data_normilized has L2 distances between 1 and 6, with a multimodal distribution.
+
+#let's use the simples aproche to compute the intrinsic dimension, assuming uniform ID. ln(N) = ln(D) + d ln(R) (maximun liklehood, asuming rho constant)
+
+def distances(x_data):
+    len_ = len(x_data)
+    dot_products = np.matmul(x_data,x_data.T)
+    squares_vec = np.diagonal(dot_products).reshape((len(x_data),1))
+    return np.sqrt( np.matmul(squares_vec,np.ones((1,len_))) + np.matmul(squares_vec,np.ones((1,len_))).T - 2 * dot_products   )
+
+def ID_linear_regression(x_data,plot=True):
+    
+    all_distances = distances(x_data)
+    R = np.linspace(1,6,100)
+
+    mean_xi=[]
+    for r in R:
+        xi = (all_distances<r)*1 
+        mean_xi.append(np.mean(np.sum(xi,axis=1) - 1)) #number of points with a distance less than r from point i, the minus 1 is to exclude himself. 
+
+    mean_xi = np.array(mean_xi)
+    R = R[mean_xi!=0]
+    mean_xi = mean_xi[mean_xi!=0]
+    model = stats.linregress(np.log(R), np.log(mean_xi))
+
+    if plot == True:
+        plt.plot(np.log(R), model.slope*np.log(R) + model.intercept,label='d: {:.2f}'.format(model.slope))
+        plt.plot(np.log(R),np.log(mean_xi),label = 'ln(N) vrs ln(R)')
+        plt.xlabel('ln(R)')
+        plt.ylabel('ln(N)')
+        plt.legend()
+        plt.show()
+    return model.slope
+
+
+
+#now lets compute relaxing rho constant, but assuming ID constant (pareto distribution of the ratio of minimun distances)
+
+def ID_pareto(x_data,seed=123,partitions = 1):
+
+    x_data_indexes = np.arange(len(x_data))
+    len_x_data = len(x_data)
+    len_partitions = int(len_x_data/partitions)
+    len_last_partition = len_x_data - len_partitions*(partitions-1)
+    #print(len_partitions,len_last_partition)
+    sets = []
+    np.random.seed(seed)
+    np.random.shuffle(x_data_indexes)
+    for i in range(partitions-1):
+        sets.append(x_data[x_data_indexes[i*len_partitions:(i+1)*len_partitions]])
+    sets.append(x_data[x_data_indexes[-len_last_partition:]])
+
+    ID = []
+    scale = []
+    for set_ in sets:
+        all_distances = distances(set_)
+
+        smallest_values = np.sort(all_distances,axis=1)[:,1:3]   #start from 1, because the smallest is clearly 0, the distance between point i and himself. 
+        smallest_values_ratios = smallest_values[:,1]/smallest_values[:,0]
+        
+        ID.append(1/np.mean(np.log(smallest_values_ratios)))
+        scale.append(np.mean(smallest_values[:,1]))
+    scale = np.array(scale)
+    ID = np.array(ID)
+    #scale = scale[ID<17]
+    #ID = ID[ID<17]
+    return np.mean(ID),np.mean(scale)
+
+
+def plot_ID_pareto(data):
+    ID_scale = np.empty((400,2))
+    for i in range(400):
+        ID_scale[i] =  ID_pareto(data,partitions=i+1,seed = 8367)
+
+    plt.plot(ID_scale[:,1],ID_scale[:,0],'o')
+    plt.show()
+
+
+
+def testing_pca(data,plot = True,num_components = 3,test_ = True):
+    pca_model = PCA()
+    pca_model.fit(data)
+
+    if test_ == True:
+        k=0
+        for i in range(len(pca_model.explained_variance_)):
+            k+= pca_model.explained_variance_ratio_[i]
+            print(k)
+        plt.plot(np.arange(len(pca_model.singular_values_)),pca_model.singular_values_,'o')
+        plt.show()
+
+    x_data_proyected = np.matmul(data,pca_model.components_[:num_components].T)
+    x_data_reconstructed = np.matmul(x_data_proyected,pca_model.components_[:num_components])
+    if plot == True:
+        fig = plt.figure()
+        ax = fig.add_subplot(111,projection='3d')
+        ax.scatter(x_data_proyected[:,0],x_data_proyected[:,1],x_data_proyected[:,2],c=seasons,cmap='plasma')
+        plt.show()
+
+        plt.plot(np.arange(len(x_data_proyected)),x_data_proyected[:,0],'o',label='first component proyection')
+        plt.plot(np.arange(len(x_data_proyected)),x_data_proyected[:,1],'o',label = 'second component proyection')
+        plt.plot(np.arange(len(x_data_proyected)),x_data_proyected[:,2],'o',label = 'third component proyection')
+        plt.show()
+    return pca_model,x_data_proyected
+
+
+#exploring hyper parameters with UMAP
+def draw_umap(data,seasons,n_neighbors=15,min_dist=0.1,n_components=2,metric='euclidean',title='',plot = True,test_=True):
+    
+
+    umap_model = umap.UMAP(
+        n_neighbors = n_neighbors,
+        min_dist = min_dist,
+        n_components = n_components,
+        metric = metric
+    )
+
+    init_day = len(seasons) - len(data)
+
+
+    u = umap_model.fit_transform(data)
+    inverse = umap_model.inverse_transform(u)
+    if test_ == True:
+        print(np.mean((data - inverse)**2))
+    if plot == True:
+        fig = plt.figure()
+        if n_components == 1:
+            ax = fig.add_subplot(111)
+            ax.scatter(range(len(u)),u[:,0], c=seasons[init_day:],cmap='plasma')
+        if n_components == 2:
+            ax = fig.add_subplot(111)
+            ax.scatter(u[:,0], u[:,1], c=seasons[init_day:],cmap='plasma')
+        if n_components == 3:
+            ax = fig.add_subplot(111, projection='3d')
+            ax.scatter(u[:,0], u[:,1], u[:,2], c=seasons[init_day:], s=100,cmap='plasma')
+        plt.title(title, fontsize=18)
+        plt.show()
+    return umap_model,u
+
+
+
+
+
+######################################################
+######################################################
+#lets make the markov state process###################
+######################################################
+######################################################
+
+
+#lets check correlations:
+def self_correlation(data):
+
+    rho = []
+    
+
+    for i in range(0,20):
+        matrix_o = data[:-i]
+        matrix_t = data[i:]
+        mean_o = np.mean(matrix_o,axis=0)
+        mean_t = np.mean(matrix_t,axis=0)
+
+        cov = np.trace( np.matmul( matrix_o  - mean_o , (matrix_t  - mean_t).T  )  )/matrix_o.shape[0]
+        sigma_o = np.sqrt( np.trace( np.matmul( matrix_o  - mean_o , (matrix_o  - mean_o).T  )  )/matrix_o.shape[0])
+        sigma_t = np.sqrt( np.trace( np.matmul( matrix_t  - mean_t , (matrix_t  - mean_t).T  )  )/matrix_t.shape[0])
+        rho.append( (cov/(sigma_o*sigma_t)) )
+    plt.plot(np.arange(0,20),rho)
+    plt.show()
+
+
+
+def read_data(data_path='./npy_data',kind = 'messurements'):
+    if kind == 'messurements':
+        data = customTensorData(data_path=data_path,which='all',per_day=False,one_dimensional=False)
+
+        dates = data.dates
+        seasons = []
+        for date in dates:
+            if ( datetime(year=2000,month=1,day=1) + timedelta(days=date) ).month in [3,4,5]  :
+                seasons.append(0.75)
+            elif ( datetime(year=2000,month=1,day=1) + timedelta(days=date) ).month in [6,7,8] :
+                seasons.append(1)
+            elif ( datetime(year=2000,month=1,day=1) + timedelta(days=date) ).month in [9,10,11]:
+                seasons.append(0.5)
+            else:
+                seasons.append(0.25)
+        seasons = np.array(seasons)
+
+        data.x_data = np.delete(data.x_data,[15,16,17,18,19],axis=1)
+        x_data_normilized = (data.x_data - np.nanmean(data.x_data,axis=0))/np.nanstd(data.x_data,axis=0)
+        return data,dates,seasons,x_data_normilized
+    elif (kind == 'output_run') or (kind == 'rrs'):
+        data = customTensorData(data_path=data_path,which='all',per_day=True,one_dimensional=True)
+        dates = data.dates
+        seasons = []
+        for date in dates:
+            if ( datetime(year=2000,month=1,day=1) + timedelta(days=int(date)) ).month in [3,4,5]  :
+                seasons.append(0.75)
+            elif ( datetime(year=2000,month=1,day=1) + timedelta(days=int(date)) ).month in [6,7,8] :
+                seasons.append(1)
+            elif ( datetime(year=2000,month=1,day=1) + timedelta(days=int(date)) ).month in [9,10,11]:
+                seasons.append(0.5)
+            else:
+                seasons.append(0.25)
+        seasons = np.array(seasons)
+        if kind == 'rrs':
+            data_use = data.y_data
+        else:
+            data_use = np.load('LastVersion/results_bayes_optimized/X_hat.npy')[:,::2]
+        data_use[data_use==0] = 0.1
+        
+        
+        x_data_normilized = (np.log(data_use) - np.mean(np.log(data_use),axis=0))/np.std(np.log(data_use),axis=0)
+        return data_use,dates,seasons,x_data_normilized
+    
+        
+
+
+
+def some_experiments_with_all_data():
+
+    data,dates,seasons,x_data_normilized = read_data()
+
+    #ID_linear_regression(x_data_normilized[:,:5])
+    #plot_ID_pareto(x_data_normilized[:,:5])
+    #testing_pca(x_data_normilized)
+    #draw_umap(data=x_data_normilized,n_neighbors=90,min_dist=0.01,n_components=2)
+    #draw_umap(data=x_data_normilized[:,:5],n_neighbors=40,min_dist=0.1,n_components=2)
+
+    
+    #hyper parameters
+    L=200
+    Tau = 1
+
+    #self_correlation(x_data_normilized[:,5:])#6 seams fine
+    #first, dimentional reduction?
+    #plot_ID_pareto(x_data_normilized[:,5:])
+    #umap_model,x_data_proyected = draw_umap(data=x_data_normilized[:,5:],n_neighbors=6,min_dist=0.2,n_components=2,plot=False,test_=False) # all except Rrs, because... #6 minimices the lse
+    #6 neightboards is the best aproximation of an euclidean distance ... Lets use 6 consecutive data as one point.
+
+    data_correlated = np.empty((x_data_normilized.shape[0] - 5,x_data_normilized.shape[1]*6))
+    for i in range(5):
+        data_correlated[:,12*i:12*i+12] = x_data_normilized[i:-5+i,5:]
+    data_correlated[:,12*5:12*5+12] = x_data_normilized[5:,5:]
+
+    #dimention of data uncorrelated?
+    #plot_ID_pareto(data_correlated)
+
+    umap_model,x_data_proyected = draw_umap(data=data_correlated,n_neighbors=27,min_dist=0.1,n_components=3,plot=True,test_=False)
+    
+    #second, k_clostering. 
+
+    k_means_model = KMeans(n_clusters=L, init='k-means++', n_init=1, max_iter=300, tol=0.0001, verbose=0, random_state=None, copy_x=True, algorithm='lloyd').fit(x_data_proyected)
+
+    Labels = k_means_model.predict(x_data_proyected)
+
+    transition_matrix = pd.crosstab(
+        pd.Series(Labels[:-1], name='from'),
+        pd.Series(Labels[1:], name='to'),
+        normalize=0
+    ).to_numpy()
+
+
+
+def plot_clusters(x_data_proyected_,seasons,Labels,k_means_model,L,plot=True,plot_ellipses=True,n_std=3,cov_= None):
+    if plot == True:
+        plt.scatter(x_data_proyected_[:,0],x_data_proyected_[:,1],c=seasons[6:],cmap='plasma',alpha=0.3,s=5)
+        plt.scatter(k_means_model.cluster_centers_[:,0],k_means_model.cluster_centers_[:,1],marker='x',c='black')
+    if type(cov_) == type(None):
+        cov_use = np.empty((L,2,2))
+    else:
+        cov_use = cov_
+    for i in range(L):
+        elements = x_data_proyected_[Labels==i]
+        if type(cov_) == type(None):
+            cov_use[i] = np.cov(elements[:,0],elements[:,1])
+        
+        if plot == True:
+            pearson = cov_use[i][0, 1]/np.sqrt(cov_use[i][0, 0] * cov_use[i][1, 1])
+            # Using a special case to obtain the eigenvalues of this
+            # two-dimensionl dataset.
+            ell_radius_x = np.sqrt(1 + pearson)
+            ell_radius_y = np.sqrt(1 - pearson)
+            ellipse = mpl.patches.Ellipse((0,0),\
+                                          width = ell_radius_x**2,height = ell_radius_y**2,linestyle='--',facecolor='none',edgecolor='black')
+            
+            scale_x = np.sqrt(cov_use[i][0, 0]) * n_std
+            scale_y = np.sqrt(cov_use[i][1, 1]) * n_std
+
+            transf = mpl.transforms.Affine2D() \
+                                   .rotate_deg(45) \
+                                   .scale(scale_x, scale_y) \
+                                   .translate(k_means_model.cluster_centers_[i,0], k_means_model.cluster_centers_[i,1])
+
+            ellipse.set_transform(transf + plt.gca().transData)
+            if plot_ellipses == True:
+                plt.gca().add_patch(ellipse)
+    if plot == True:
+        plt.show()
+    return cov_use
+
+def generating_sintetic_data(save=False):
+    """
+    I want to generate data similar to chla, nap and cdom I have
+    """
+    np.random.seed(seed=57946)
+    data,dates,seasons,x_data_normilized = read_data(data_path='/Users/carlos/Documents/surface_data_analisis/LastVersion/npy_data',kind='output_run')
+
+    #ID_linear_regression(x_data_normilized)
+    #plot_ID_pareto(x_data_normilized)
+    #testing_pca(x_data_normilized)
+    ###no dimentional reduction in this step, is only three dimentions...
+    
+    #lets fit the data to sin and cos functions with periods of 1 year and 3 months.
+    def function_sin(t,a1,a2,phi1,phi2,b1,b2,theta1,theta2,c):
+        w1 = 2*np.pi/365
+        w2 = 2*np.pi*4/365
+        return c + a1*np.cos(w1*t + phi1) + b1*np.sin(w1*t + theta1) + a2*np.cos(w2*t + phi2) + b2*np.sin(w2*t + theta2)
+
+
+    data_fit = np.empty((len(dates),3))
+    for i in range(3):
+        params, params_covariance = scipy.optimize.curve_fit(function_sin,dates,x_data_normilized[:,i])
+        data_fit[:,i] = function_sin(dates,*params)
+        if save == True:
+            np.save('UQ/clusters/fun_sin_'+str(i) +'_params.npy',params)
+
+    data_use = x_data_normilized - data_fit
+    data_use_normilized = (data_use - np.mean(data_use,axis=0))/np.std(data_use,axis=0)
+    
+    #lets create markov data. 
+    #self_correlation(data_use_normilized) #8 seims like fine.
+    data_correlated = np.empty((data_use_normilized.shape[0] - 6,data_use_normilized.shape[1]*7))
+    for i in range(6):
+        data_correlated[:,3*i:3*i+3] = data_use_normilized[i:-6+i,:]
+    data_correlated[:,3*6:3*6+3] = data_use_normilized[6:,:]
+
+    data_correlated_normilized = (data_correlated - np.mean(data_correlated,axis=0))/np.std(data_correlated,axis=0)
+
+    #lets make dimentional reduction of this new data set
+    #ID_linear_regression(data_correlated)
+    #plot_ID_pareto(data_correlated)
+
+
+    umap_model,x_data_proyected = draw_umap(data=data_correlated_normilized,seasons=seasons,n_neighbors=11,min_dist=0.04,n_components=2,plot=False,test_=False)
+    if save ==  True:
+        pickle.dump(umap_model, open('UQ/clusters/umap_model.pickle', 'wb'))
+    L=50
+    k_means_model = KMeans(n_clusters=L, init='k-means++', n_init=1, max_iter=300, tol=0.0001, verbose=0, random_state=None, copy_x=True, algorithm='lloyd').fit(x_data_proyected)
+    if save == True:
+        pickle.dump(k_means_model,open('UQ/clusters/k_means_model.pickle','wb'))
+    
+    Labels = k_means_model.predict(x_data_proyected)
+    if save==True:
+        np.save('UQ/clusters/data_labels.npy',Labels)
+
+    cov = plot_clusters(x_data_proyected,seasons,Labels,k_means_model,L,plot=True)
+
+    transition_matrix = pd.crosstab(
+        pd.Series(Labels[:-1], name='from'),
+        pd.Series(Labels[1:], name='to'),
+        normalize=0
+    ).to_numpy()
+
+    #####lets generate new data
+
+    def generate_data_timeline(plot=True):
+        generated_Labels = np.empty((len(x_data_proyected)))
+        generated_data = np.empty((len(x_data_proyected),2))
+    
+        generated_Labels[0] = Labels[0]
+        generated_data[0] = stats.multivariate_normal.rvs(mean=k_means_model.cluster_centers_[int(generated_Labels[0])],cov = cov[int(generated_Labels[0])])
+    
+        for i in range(len(generated_data)-1):
+            generated_Labels[i+1] = np.random.choice(np.arange(L),p=transition_matrix[int(generated_Labels[i])])
+            generated_data[i+1] = stats.multivariate_normal.rvs(mean=k_means_model.cluster_centers_[int(generated_Labels[i+1])],cov = cov[int(generated_Labels[i+1])])
+
+
+        if plot == True:
+            plot_clusters(generated_data,seasons,Labels,k_means_model,L,plot=True,plot_ellipses = True,n_std=3,cov_=cov)
+
+        generated_data_decompresed = np.empty((len(data_use),5))
+
+        inverse_transform_data = umap_model.inverse_transform(generated_data)
+        generated_data_decompresed[:len(generated_data),:3] = inverse_transform_data[:,:3]
+        generated_data_decompresed[len(generated_data):,:3] = np.reshape(inverse_transform_data[-1,3:],(6,3))
+        generated_data_decompresed[:,:3] = generated_data_decompresed[:,:3]*np.std(data_use,axis=0) + np.mean(data_use,axis=0)
+        generated_data_decompresed[:,:3] = np.exp((generated_data_decompresed[:,:3] + data_fit) * np.std(np.log(data),axis=0) + np.mean(np.log(data),axis=0))
+        generated_data_decompresed[:,-2] = dates
+        generated_data_decompresed[:len(generated_data),-1] = generated_Labels
+        generated_data_decompresed[len(generated_data):,-1] = np.nan
+        
+        if plot == True:
+            plt.scatter(generated_data_decompresed[:,3],generated_data_decompresed[:,0])
+            plt.scatter(generated_data_decompresed[:,3],data[:-6,0])
+            plt.show()
+        return generated_data_decompresed
+    test_generated_data = generate_data_timeline(plot=False)
+    if save==True:
+        generated_data = np.empty((500,*test_generated_data.shape))
+        for i in range(500):
+            generated_data[i] = generate_data_timeline(plot=False)
+            #print(generated_data)
+            print(i,'done')
+        np.save('UQ/clusters/generated_data.npy',generated_data) 
+
+def aproximatin_model_error():
+    
+    data,dates,seasons,x_data_normilized = read_data()
+    rrs_o = data.x_data[:,:5]
+    data_hat,dates_hat,seasons,x_data_normilized = read_data(data_path='/Users/carlos/Documents/surface_data_analisis/results_first_two_run',kind='rrs')
+    rrs_hat = []
+    for i in range(len(dates_hat)):
+        if dates_hat[i] in dates :
+            rrs_hat.append(data_hat[i])
+    rrs_hat = np.array(rrs_hat)
+
+    delta_y = rrs_o - rrs_hat
+    mean_delta_y = np.mean(delta_y,axis=0)
+
+    
+    
+    cov_delta_y = np.cov(delta_y.T) + np.identity(5)*np.array([1.5e-3,1.2e-3,1e-3,8.6e-4,5.7e-4])
+    print(cov_delta_y)
+
+
+
+def save_RRS_0_sim():
+    data_path = '/Users/carlos/Documents/surface_data_analisis/LastVersion/npy_data'
+    data = customTensorData(data_path=data_path,which='all',per_day = True)
+    z = torch.tensor(np.load('UQ/clusters/generated_data.npy')).to(torch.float32)
+    print(z.shape)
+    y_0 = np.empty((500,z.shape[1],5))
+    model = Forward_Model(num_days = z.shape[1])
+    dataloader =  DataLoader(data, batch_size=z.shape[1], shuffle=False)
+    perturbation_path = '/Users/carlos/Documents/surface_data_analisis/LastVersion/plot_data'
+    perturbation_factors = torch.tensor(np.load(perturbation_path + '/past_parameters.npy')[-1]).to(torch.float32)
+    constant = read_constants(file1='cte_lambda.csv',file2='cst.csv')
+
+    X,Y = next(iter(dataloader))
+    
+    for i in range(500):
+
+        y_0[i] = model(X,constant = constant, perturbation_factors_ = perturbation_factors, parameters =  torch.unsqueeze(z[i,:,:3],1) )
+        
+    print('save','./UQ/clusters/RRS_generated_0.npy')
+    np.save('./UQ/clusters/RRS_generated_0.npy',y_0)
+    
+
+
+
+
+
+def get_z_zero_hat():
+
+    perturbation_path = '/Users/carlos/Documents/surface_data_analisis/LastVersion/plot_data'
+    data_path = '/Users/carlos/Documents/surface_data_analisis/LastVersion/npy_data'
+    RRS_0 = torch.tensor(np.load('UQ/clusters/RRS_generated_0.npy')).to(torch.float32)
+    
+    data = customTensorData(data_path=data_path,which='all',per_day = True,randomice=False)
+    perturbation_factors = torch.tensor(np.load(perturbation_path + '/past_parameters.npy')[-1]).to(torch.float32)
+    my_device = 'cpu'
+    constant = read_constants(file1='cte_lambda.csv',file2='cst.csv',my_device = my_device)
+    
+    x_a = torch.ones(3)
+    s_a = torch.eye(3)*10
+    s_e = (torch.eye(5)*torch.tensor([1.5e-3,1.2e-3,1e-3,8.6e-4,5.7e-4]))**(2)#validation rmse from https://catalogue.marine.copernicus.eu/documents/QUID/CMEMS-OC-QUID-009-141to144-151to154.pdf
+
+    lr = 1e-3
+    batch_size = RRS_0.shape[1]
+
+    z_generated=np.load('UQ/clusters/generated_data.npy')
+    z_hat_0 = np.empty((30,batch_size,3))
+
+    for i in range(30):
+        data.y_data[:] = RRS_0[i]
+        dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
+        model = Forward_Model(num_days=batch_size).to(my_device)
+        initial_conditions(data,batch_size,model) #carefull with this step
+        loss = custom_Loss(x_a,s_a,s_e,num_days=batch_size,my_device = my_device)
+        optimizer = torch.optim.Adam(model.parameters(),lr=lr)
+    
+        rrs,z_hat_i = train_loop(next(iter(dataloader)),model,loss,optimizer,4000,kind='not all',\
+                             num_days=batch_size,constant = constant,perturbation_factors_ = perturbation_factors, scheduler = True)
+        z_hat_0[i] = z_hat_i
+    np.save('UQ/clusters/z_generated_hat_0.npy',z_hat_0)
+
+def generating_RRS():
+    perturbation_path = '/Users/carlos/Documents/surface_data_analisis/LastVersion/plot_data'
+    data_path = '/Users/carlos/Documents/surface_data_analisis/LastVersion/npy_data'
+    RRS_0 = torch.tensor(np.load('UQ/clusters/RRS_generated_0.npy')).to(torch.float32)
+    
+    data = customTensorData(data_path=data_path,which='all',per_day = True,randomice=False)
+    perturbation_factors = torch.tensor(np.load(perturbation_path + '/past_parameters.npy')[-1]).to(torch.float32)
+    my_device = 'cpu'
+    constant = read_constants(file1='cte_lambda.csv',file2='cst.csv',my_device = my_device)
+    
+    x_a = torch.ones(3)
+    s_a = torch.eye(3)*10
+    s_e = (torch.eye(5)*torch.tensor([1.5e-3,1.2e-3,1e-3,8.6e-4,5.7e-4]))**(2)#validation rmse from https://catalogue.marine.copernicus.eu/documents/QUID/CMEMS-OC-QUID-009-141to144-151to154.pdf
+
+    lr = 1e-3
+    batch_size = RRS_0.shape[1]
+
+    dataloader = DataLoader(data,batch_size = batch_size)
+    X,Y = next(iter(dataloader))
+    Y = Y.clone().detach().numpy()
+    Y_hat = np.load('LastVersion/results_bayes_optimized/RRS_hat.npy')
+
+    Labels_ = np.load('UQ/clusters/data_labels.npy')
+    Labels = np.empty(len(Labels_) + 6)
+    Labels[:len(Labels_)] = Labels_
+    Labels[len(Labels_):] = np.nan
+
+    epsilon_Y = []
+    mean_epsilon_Y = np.empty((50,5))
+    cov_epsilon_Y = np.empty((50,5,5))
+
+    for i in range(50):
+    
+        epsilon_Y.append( (Y-Y_hat)[Labels==i] )
+        mean_epsilon_Y[i] = np.mean(epsilon_Y[i],axis=0)
+        cov_epsilon_Y[i] = np.cov(epsilon_Y[i].T)
+
+    Y_simulated_0 = np.load('UQ/clusters/RRS_generated_0.npy')
+    z_simulated_hat_0 = np.load('UQ/clusters/z_generated_hat_0.npy')
+    Labels_0 = np.load('UQ/clusters/generated_data.npy')[:30,:,-1]
+
+    
+    z_simulated_hat_0 = torch.tensor(z_simulated_hat_0[:,:,:3]).to(torch.float32)
+
+    model = Forward_Model(num_days = batch_size)
+
+    Y_simulated_hat_0 = np.empty((30,Y_simulated_0.shape[1],Y_simulated_0.shape[2]))
+    for i in range(30):
+        Y_simulated_hat_0[i] = model(X,constant = constant, perturbation_factors_ = perturbation_factors, parameters =  torch.unsqueeze(z_simulated_hat_0[i],1) )
+
+    epsilon_Y_simulated = Y_simulated_0[:30] - Y_simulated_hat_0
+    
+    mean_epsilon_Y_simulated = np.empty((50,5))
+    cov_epsilon_Y_simulated = np.empty((50,5,5))
+
+    for i in range(50):
+        epsilon_i = epsilon_Y_simulated[Labels_0 == i]
+        mean_epsilon_Y_simulated[i] = np.mean(epsilon_i,axis=0)
+        
+        cov_epsilon_Y_simulated[i] = np.cov(epsilon_i.T)
+
+    s_e = (np.identity(5)*np.array([1.5e-3,1.2e-3,1e-3,8.6e-4,5.7e-4]))**2
+    mean_delta = mean_epsilon_Y - mean_epsilon_Y_simulated
+    cov_delta = cov_epsilon_Y + cov_epsilon_Y_simulated
+
+        
+    Y_generated = np.empty((Y_simulated_0.shape[0],Y_simulated_0.shape[1]-6,Y_simulated_0.shape[2]))
+    Labels_0 = np.load('UQ/clusters/generated_data.npy')[:,:-6,-1]
+    for i in range(500):
+        for j in range(Y_generated.shape[1]):
+            Y_generated[i,j] = Y_simulated_0[i,j] + stats.multivariate_normal.rvs(mean=mean_delta[int(Labels_0[i,j])],cov = cov_delta[int(Labels_0[i,j])])
+        print(i,'done')
+    np.save('RRS_generated.npy',Y_generated)
+
+def get_z_hat():
+
+    perturbation_path = '/Users/carlos/Documents/surface_data_analisis/LastVersion/plot_data'
+    data_path = '/Users/carlos/Documents/surface_data_analisis/LastVersion/npy_data'
+    RRS = torch.tensor(np.load('UQ/clusters/RRS_generated.npy')).to(torch.float32)
+    
+    data = customTensorData(data_path=data_path,which='all',per_day = True,randomice=False)
+    perturbation_factors = torch.tensor(np.load(perturbation_path + '/past_parameters.npy')[-1]).to(torch.float32)
+    my_device = 'cpu'
+    constant = read_constants(file1='cte_lambda.csv',file2='cst.csv',my_device = my_device)
+    
+    x_a = torch.ones(3)
+    s_a = torch.eye(3)*10
+    s_e = (torch.eye(5)*torch.tensor([1.5e-3,1.2e-3,1e-3,8.6e-4,5.7e-4]))**(2)#validation rmse from https://catalogue.marine.copernicus.eu/documents/QUID/CMEMS-OC-QUID-009-141to144-151to154.pdf
+
+    lr = 1e-3
+    batch_size = RRS.shape[1]
+
+    z_generated=np.load('UQ/clusters/generated_data.npy')
+    z_hat = np.empty((RRS.shape[0],batch_size,3))
+
+    for i in range(92,RRS.shape[0]):
+        data.y_data[:batch_size] = RRS[i]
+        dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
+        model = Forward_Model(num_days=batch_size).to(my_device)
+        initial_conditions(data,batch_size,model) #carefull with this step
+        loss = custom_Loss(x_a,s_a,s_e,num_days=batch_size,my_device = my_device)
+        optimizer = torch.optim.Adam(model.parameters(),lr=lr)
+    
+        rrs,z_hat_i = train_loop(next(iter(dataloader)),model,loss,optimizer,4000,kind='not all',\
+                             num_days=batch_size,constant = constant,perturbation_factors_ = perturbation_factors, scheduler = True)
+        z_hat[i] = z_hat_i
+        np.save('UQ/clusters/temporary/z_generated_hat_'+str(i)+'.npy',z_hat[i])
+        print(i,'done')
+    np.save('UQ/clusters/z_generated_hat.npy',z_hat)
+
+
+if __name__ == '__main__':
+
+    #data_path = '/Users/carlos/Documents/surface_data_analisis/LastVersion/npy_data'
+    
+    #data, dates,seasons,data_normilized = read_data(data_path=data_path,kind = 'messurements')
+    #dataloader = DataLoader(data, batch_size=data.len_data, shuffle=False)
+
+    ###################################################
+    #experiments with all the input data (just for fun)
+    ##################################################
+    #ID_linear_regression(data_normilized,plot=True)
+    #plot_ID_pareto(data_normilized)
+
+    #testing_pca(data_normilized,plot = True,num_components = 3,test_ = True)
+    
+    #umap_model,x_data_proyected = draw_umap(data=data_normilized,seasons=seasons,n_neighbors=90,min_dist=0.01,n_components=2)
+
+
+    #results = get_z_hat( ([[torch.tensor(x_data[index]).to(torch.float32)],[torch.tensor(y_data[index][:5]).to(torch.float32)]],dates_use[index] ))
+
+    ####################################################
+    #now what im going to use
+    ####################################################        
+    
+    #generating_sintetic_data(save=True)
+    #save_RRS_0_sim()
+    #get_z_zero_hat
+    #generating_RRS
+    get_z_hat()
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
