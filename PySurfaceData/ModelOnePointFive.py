@@ -1225,7 +1225,7 @@ def track_parameters(data_path = '/Users/carlos/Documents/OGS_one_d_model/npy_da
     batch_size = data.len_data
     dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
     model = Forward_Model(num_days=batch_size).to(my_device)
-    initial_conditions(data,batch_size,model) #carefull with this step
+    initial_conditions_nn(model,constant,data_path,which='train',randomice = False,seed = 1) #carefull with this step
     loss = custom_Loss(x_a,s_a,s_e,num_days=batch_size,my_device = my_device)
     optimizer = torch.optim.Adam(model.parameters(),lr=lr)
 
@@ -1262,8 +1262,7 @@ def track_parameters(data_path = '/Users/carlos/Documents/OGS_one_d_model/npy_da
         p_pred = torch.masked_fill(p_pred,torch.isnan(p_Y_nan),0)
         for param in model.parameters():
             param.requires_grad = False
-            
-        
+
         p_loss = Parameter_loss(p_Y,p_pred,p_Y_nan)
         p_loss.backward()
         for param in Parameter_model.parameters():#seting nan gradients to cero (only move in direction where I have information)
@@ -1593,7 +1592,7 @@ if __name__ == '__main__':
     data_path = '/Users/carlos/Documents/OGS_one_d_model/npy_data'
     output_path = '/Users/carlos/Documents/OGS_one_d_model/results_bayes_lognormal_logparam/alphas'
     #track_alphas(output_path = output_path)
-    #track_parameters(iterations=500)
+    track_parameters(iterations=500)
     #print(asdfadsf)
     #plot_tracked_parameters(data_path='/Users/carlos/Documents/surface_data_analisis/LastVersion/plot_data',save=True,color_palet=2,side = 'left',with_loss =False)
     #plot_track_absortion_ph(data_path = data_path)
