@@ -2,7 +2,7 @@
 
 import numpy as np
 import torch
-
+from torch import nn
 ###################################################################################################################################################################################################
 ############################################################################FUNCTIONS NEEDED TO DEFINE THE FORWARD MODEL###########################################################################
 ###################################################################################################################################################################################################
@@ -490,3 +490,159 @@ def Rrs_MODEL(E_dif_o,E_dir_o,lambda_,zenith,PAR,chla,NAP,CDOM,perturbation_fact
     """
     Rrs = E_u(0,E_dif_o,E_dir_o,lambda_,zenith,PAR,chla,NAP,CDOM,perturbation_factors,tensor=tensor,axis = axis,constant = constant)  /  (   Q_rs(zenith,perturbation_factors,tensor=tensor,constant = constant)*(E_dir_o + E_dif_o)   )
     return Rrs_plus( Rrs ,tensor = tensor,constant = constant)
+
+
+class Forward_Model(nn.Module):
+    """
+    Bio-Optical model plus corrections, in order to have the Remote Sensing Reflectance, in terms of the inversion problem. 
+    Forward_Model(x) returns a tensor, with each component being the Remote Sensing Reflectance for each given wavelength. 
+    if the data has 5 rows, each with a different wavelength, RRS will return a vector with 5 components.  RRS has tree parameters, 
+    self.chla is the chlorophil-a, self.NAP the Non Algal Particles, and self.CDOM the Colored Dissolved Organic Mather. 
+    According to the invention problem, we want to estimate them by making these three parameters have two constraints,
+    follow the equations of the bio-optical model, plus, making the RRS as close as possible to the value
+    measured by the satellite.
+    
+    """
+    def __init__(self,precision = torch.float32,num_days=1,learning_chla = True,learning_perturbation_factors = False):
+        super().__init__()
+        if learning_chla == True:
+            self.chparam = nn.Parameter(torch.rand((num_days,1,3), dtype=torch.float32), requires_grad=True)
+        self.learning_chla = learning_chla
+
+        if learning_perturbation_factors == False:
+            self.perturbation_factors = torch.ones(14, dtype=torch.float32)
+        else:
+            self.perturbation_factors =  nn.Parameter(torch.ones(14, dtype=torch.float32), requires_grad=True)
+
+        self.perturbation_factors_names = [
+            '$\epsilon_{a,ph}$',
+            '$\epsilon_{tangent,s,ph}$',
+            '$\epsilon_{intercept,s,ph}$',
+            '$\epsilon_{tangent,b,ph}$',
+            '$\epsilon_{intercept,b,ph}$',
+            '$\epsilon_{a,cdom}$',
+            '$\epsilon_{exp,cdom}$',
+            '$\epsilon_{q,1}$',
+            '$\epsilon_{q,2}$',
+            '$\epsilon_{theta,min}$',
+            '$\epsilon_{theta,o}$',
+            '$\epsilon_\\beta$',
+            '$\epsilon_\sigma$',
+            '$\epsilon_{b,nap}$',
+        ]
+        self.precision = precision
+
+    def forward(self,x_data,parameters = None, axis = None,perturbation_factors_ = None,constant = None):
+        """
+        x_data: torch tensor. 
+        """
+        
+        if type(perturbation_factors_) == type(None):
+            perturbations = self.perturbation_factors
+        else:
+            perturbations = perturbation_factors_
+        if type(parameters) == type(None):
+            if self.learning_chla == False:
+                print('Please provide a tensor with the value of chla,nap and cdom')
+
+            if type(axis) == type(None):
+            
+                Rrs = Rrs_MODEL(x_data[:,:,0],x_data[:,:,1],x_data[:,:,2],\
+                                x_data[:,:,3],x_data[:,:,4],torch.exp(self.chparam[:,:,0]),torch.exp(self.chparam[:,:,1]),torch.exp(self.chparam[:,:,2]),perturbations,constant = constant)
+            
+                return Rrs.to(self.precision)
+            else:
+
+                Rrs = Rrs_MODEL(x_data[:,axis,0],x_data[:,axis,1],x_data[:,axis,2],\
+                                x_data[:,axis,3],x_data[:,axis,4],torch.exp(self.chparam[:,:,0]),torch.exp(self.chparam[:,:,1]),torch.exp(self.chparam[:,:,2]),perturbations,constant = constant)
+            
+                return Rrs.to(self.precision)
+
+        else:
+            if type(axis) == type(None):
+                
+                Rrs = Rrs_MODEL(x_data[:,:,0],x_data[:,:,1],x_data[:,:,2],\
+                                x_data[:,:,3],x_data[:,:,4],torch.exp(parameters[:,:,0]),torch.exp(parameters[:,:,1]),torch.exp(parameters[:,:,2]),perturbations,constant = constant)
+            
+                return Rrs.to(self.precision)
+            else:
+                Rrs = Rrs_MODEL(x_data[:,axis,0],x_data[:,axis,1],x_data[:,axis,2],\
+                                x_data[:,axis,3],x_data[:,axis,4],torch.exp(parameters[:,:,0]),torch.exp(parameters[:,:,1]),torch.exp(parameters[:,:,2]),perturbations,constant = constant)
+                return Rrs.to(self.precision)
+
+######Functions to error propagation########
+def error_propagation(df,sigma):
+
+    error_ = df @  sigma @ torch.transpose(df,1,2)
+    error = torch.diagonal(error_,dim1=1,dim2=2)
+    return error
+
+class evaluate_model_class():
+    """
+    class to evaluate functions needed to compute the uncerteinty. 
+    """
+    def __init__(self,model,X,axis=None,constant = None,which_parameters='chla',chla=None):
+        self.axis = axis
+        self.model = model
+        self.X = X
+        self.constant = constant
+        self.chla = chla
+        self.which_parameters = which_parameters
+    def model_der(self,parameters_eval,perturbation_factors_ = None):
+        
+        if type(perturbation_factors_) == type(None):
+            perturbations = self.model.perturbation_factors
+        else:
+            perturbations = perturbation_factors_
+            
+        if self.which_parameters == 'chla':    
+            return self.model(self.X,parameters = parameters_eval,axis = self.axis,perturbation_factors_ = perturbations,constant = self.constant)
+        elif self.which_parameters == 'perturbations':
+            return self.model(self.X,parameters = self.chla,axis = self.axis,perturbation_factors_ = parameters_eval,constant = self.constant)
+        
+    def kd_der(self,parameters_eval,perturbation_factors_ = None):
+        
+        if type(perturbation_factors_) == type(None):
+            perturbations = self.model.perturbation_factors
+        else:
+            perturbations = perturbation_factors_
+            
+        if self.axis == None:
+            if self.which_parameters == 'chla': 
+                kd_values = kd(9,self.X[:,:,0],self.X[:,:,1],self.X[:,:,2],\
+                               self.X[:,:,3],self.X[:,:,4],torch.exp(parameters_eval[:,:,0]),torch.exp(parameters_eval[:,:,1]),torch.exp(parameters_eval[:,:,2]),perturbations,constant = self.constant)
+            elif self.which_parameters == 'perturbations':
+                kd_values = kd(9,self.X[:,:,0],self.X[:,:,1],self.X[:,:,2],\
+                               self.X[:,:,3],self.X[:,:,4],torch.exp(self.chla[:,:,0]),torch.exp(self.chla[:,:,1]),torch.exp(self.chla[:,:,2]),parameters_eval,constant = self.constant)
+        else:
+            if self.which_parameters == 'chla': 
+                kd_values = kd(9,self.X[:,self.axis,0],self.X[:,self.axis,1],self.X[:,self.axis,2],\
+                               self.X[:,self.axis,3],self.X[:,self.axis,4],torch.exp(parameters_eval[:,:,0]),torch.exp(parameters_eval[:,:,1]),torch.exp(parameters_eval[:,:,2]),perturbations,axis = self.axis,constant = self.constant)
+            elif self.which_parameters == 'perturbations':
+                kd_values = kd(9,self.X[:,self.axis,0],self.X[:,self.axis,1],self.X[:,self.axis,2],\
+                               self.X[:,self.axis,3],self.X[:,self.axis,4],torch.exp(self.chla[:,:,0]),torch.exp(self.chla[:,:,1]),torch.exp(self.chla[:,:,2]),parameters_eval,axis = self.axis,constant = self.constant)
+        return kd_values
+
+    def bbp_der(self,parameters_eval,perturbation_factors_ = None):
+
+        if type(perturbation_factors_) == type(None):
+            perturbations = self.model.perturbation_factors
+        else:
+            perturbations = perturbation_factors_
+        if self.axis == None:
+            if self.which_parameters == 'chla': 
+                bbp_values = bbp(self.X[:,:,0],self.X[:,:,1],self.X[:,:,2],\
+                                 self.X[:,:,3],self.X[:,:,4],torch.exp(parameters_eval[:,:,0]),torch.exp(parameters_eval[:,:,1]),torch.exp(parameters_eval[:,:,2]),perturbations,constant = self.constant)
+            elif self.which_parameters == 'perturbations':
+                bbp_values = bbp(self.X[:,:,0],self.X[:,:,1],self.X[:,:,2],\
+                                 self.X[:,:,3],self.X[:,:,4],torch.exp(self.chla[:,:,0]),torch.exp(self.chla[:,:,1]),torch.exp(self.chla[:,:,2]),parameters_eval,constant = self.constant)
+            return bbp_values[:,[1,2,4]]
+        else:
+            if self.which_parameters == 'chla': 
+                bbp_values = bbp(self.X[:,self.axis,0],self.X[:,self.axis,1],self.X[:,self.axis,2],\
+                                 self.X[:,self.axis,3],self.X[:,self.axis,4],torch.exp(parameters_eval[:,:,0]),torch.exp(parameters_eval[:,:,1]),torch.exp(parameters_eval[:,:,2]),perturbations,axis=self.axis,constant = self.constant)
+            elif self.which_parameters == 'perturbations':
+                bbp_values = bbp(self.X[:,self.axis,0],self.X[:,self.axis,1],self.X[:,self.axis,2],\
+                                 self.X[:,self.axis,3],self.X[:,self.axis,4],torch.exp(self.chla[:,:,0]),torch.exp(self.chla[:,:,1]),torch.exp(self.chla[:,:,2]),parameters_eval,axis=self.axis,constant = self.constant)
+
+            return bbp_values

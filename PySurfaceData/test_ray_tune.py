@@ -19,87 +19,24 @@ from ray.tune.schedulers.hb_bohb import HyperBandForBOHB
 from ray.tune.search.bohb import TuneBOHB
 import ConfigSpace as CS
 
+import torch
+import time
 
-class MyTrainableClass(Trainable):
-    """Example agent whose learning curve is a random sigmoid.
+from torch.distributions.multivariate_normal import MultivariateNormal
 
-    The dummy hyperparameters "width" and "height" determine the slope and
-    maximum reward value reached.
-    """
+mean_time = 0
+for i in range(100):
+    time_init = time.time()
+    samples1 = MultivariateNormal(torch.zeros(3),scale_tril=torch.eye(3)).sample(sample_shape=torch.Size([1000,1]))
+    mean_time += time.time() - time_init
+print(mean_time/100,samples1.shape)
 
-    def setup(self, config):
-        self.timestep = 0
-
-    def step(self):
-        self.timestep += 1
-        v = np.tanh(float(self.timestep) / self.config.get("width", 1))
-        v *= self.config.get("height", 1)
-        time.sleep(0.1)
-        # Here we use `episode_reward_mean`, but you can also report other
-        # objectives such as loss or accuracy.
-        return {"episode_reward_mean": v}
-
-    def save_checkpoint(self, checkpoint_dir):
-        path = os.path.join(checkpoint_dir, "checkpoint")
-        with open(path, "w") as f:
-            f.write(json.dumps({"timestep": self.timestep}))
-
-    def load_checkpoint(self, checkpoint_dir):
-        path = os.path.join(checkpoint_dir, "checkpoint")
-        with open(path, "r") as f:
-            self.timestep = json.loads(f.read())["timestep"]
+mean_time = 0
+for i in range(100):
+    time_init = time.time()
+    samples1 = torch.randn(torch.Size([1000,1,3]))
+    mean_time += time.time() - time_init
+print(mean_time/100, samples1.shape)
 
 
-if __name__ == "__main__":
-    ray.init(num_cpus=8)
-
-    config = {
-        "iterations": 100,
-        "width": tune.uniform(0, 20),
-        "height": tune.uniform(-100, 100),
-        "activation": tune.choice(["relu", "tanh"]),
-    }
-
-
-    config_space = CS.ConfigurationSpace()
-    config_space.add_hyperparameter(
-        CS.UniformFloatHyperparameter("width", lower=0, upper=20))
-    config_space.add_hyperparameter(
-        CS.UniformFloatHyperparameter("height", lower=-100, upper=100))
-    config_space.add_hyperparameter(
-        CS.CategoricalHyperparameter(
-            "activation", choices=["relu", "tanh"]))
-
-    config_space = CS.ConfigurationSpace(config)
     
-    
-
-    max_iterations = 10
-    bohb_hyperband = HyperBandForBOHB(
-        time_attr="training_iteration",
-        max_t=max_iterations,
-        reduction_factor=2,
-        stop_last_trials=False,
-    )
-
-    bohb_search = TuneBOHB(
-         space=config_space, metric='episode_reward_mean',mode='max' # If you want to set the space manually
-    )
-    bohb_search = tune.search.ConcurrencyLimiter(bohb_search, max_concurrent=4)
-
-    tuner = tune.Tuner(
-        MyTrainableClass,
-        run_config=train.RunConfig(
-            name="bohb_test", stop={"training_iteration": max_iterations}
-        ),
-        tune_config=tune.TuneConfig(
-            metric="episode_reward_mean",
-            mode="max",
-            scheduler=bohb_hyperband,
-            search_alg=bohb_search,
-            num_samples=32,
-        ),
-    )
-    results = tuner.fit()
-
-    print("Best hyperparameters found were: ", results.get_best_result().config)

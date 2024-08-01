@@ -9,7 +9,7 @@ from scipy import stats
 class customTensorData():
 
     def __init__(self,data_path='./npy_data',transform=None,target_transform=None,train_percentage = 0.9,from_where = 'left',randomice=False,specific_columns=None,which='train',\
-                 seed=None,per_day=True,precision=torch.float32,one_dimensional = False,normilized_NN=True,log_normal=True,device='cpu'):
+                 seed=None,per_day=True,precision=torch.float32,one_dimensional = False,normilized_NN='z-score',log_normal=True,device='cpu'):
         """
         Class used to read the data, x_data is the imput data, y_data is the spected output of the model. It can be the Remote Sensing Reflectance or in-situ messuraments.
 
@@ -92,9 +92,12 @@ class customTensorData():
             self.x_column_names = ['Edif_412','Edif_442','Edif_490','Edif_510',\
                                'Edif_555','Edir_412','Edir_442','Edir_490','Edir_510','Edir_555','lambda_412','lambda_442',\
                                'lambda_490','lambda_510','lambda_555','zenith','PAR']
+            
         else:
             self.y_data = np.load(data_path + '/y_data_all.npy',allow_pickle=False)
             self.y_column_names = ['chla','kd_412','kd_442','kd_490','kd_510','kd_555','bbp_442','bbp_490','bbp_555']
+            self.y_data[:,-1][self.y_data[:,-1] == 0] = np.nan
+
             if log_normal == True:
                 self.y_data[:,0] = np.log(self.y_data[:,0]) ############using log normal distribution
             
@@ -141,13 +144,35 @@ class customTensorData():
         self.len_data = len(self.my_indexes)
         self.dates = self.dates[self.my_indexes]
         self.init = self.init[self.my_indexes]
+        
         self.x_std = np.nanstd(self.x_data[self.train_indexes],axis=0)
         self.y_std = np.nanstd(self.y_data[self.train_indexes],axis=0)
         self.x_mean = np.nanmean(self.x_data[self.train_indexes],axis=0)
         self.y_mean = np.nanmean(self.y_data[self.train_indexes],axis=0)
-        self.x_normilized = (self.x_data - self.x_mean)/self.x_std
-        self.y_normilized = (self.y_data - self.y_mean)/self.y_std
+
+        self.x_max = np.nanmax(self.x_data[self.train_indexes],axis=0)
+        self.y_max = np.nanmax(self.y_data[self.train_indexes],axis=0)
+        self.x_min = np.nanmin(self.x_data[self.train_indexes],axis=0)
+        self.y_min = np.nanmin(self.y_data[self.train_indexes],axis=0)
+
         self.normilized_NN = normilized_NN
+        if self.normilized_NN == 'z-score':
+            self.x_normilized = (self.x_data - self.x_mean)/self.x_std
+            self.y_normilized = (self.y_data - self.y_mean)/self.y_std
+            self.x_mul = torch.tensor(self.x_std).to(self.precision)
+            self.y_mul = torch.tensor(self.y_std).to(self.precision)
+            self.x_add = torch.tensor(self.x_mean).to(self.precision)
+            self.y_add = torch.tensor(self.y_mean).to(self.precision)
+
+        elif self.normilized_NN == 'scaling':
+            
+            self.x_normilized = (self.x_data - self.x_min)/(self.x_max - self.x_min)
+            self.y_normilized = (self.y_data - self.y_min)/(self.y_max - self.y_min)
+            self.x_mul = torch.tensor(self.x_max - self.x_min).to(self.precision)
+            self.y_mul = torch.tensor(self.y_max - self.y_min).to(self.precision)
+            self.x_add = torch.tensor(self.x_min).to(self.precision)
+            self.y_add = torch.tensor(self.y_min).to(self.precision)
+            
         self.device = device
 
             
@@ -179,9 +204,11 @@ class customTensorData():
                 image[:,4] = torch.tensor(self.x_data[self.my_indexes][idx][20])
                 image[:,5] = torch.tensor(self.x_data[self.my_indexes][idx][21])
         else:
-            if self.normilized_NN == True:
+            if self.normilized_NN != None:
+
                 label = torch.tensor(self.y_normilized[self.my_indexes][idx]).unsqueeze(0)
                 image = torch.tensor(self.x_normilized[self.my_indexes][idx]).unsqueeze(0)
+
             else:
                 label = torch.tensor(self.y_data[self.my_indexes][idx]).unsqueeze(0)
                 image = torch.tensor(self.x_data[self.my_indexes][idx]).unsqueeze(0)
@@ -239,7 +266,65 @@ def read_constants(file1='./cte_lambda.csv',file2='./cst.csv',tensor = True,my_d
     
     return constant
 
+
+def transform_to_data_dataframe(data_path,which='all'):
+    data = customTensorData(data_path=data_path,which=which,per_day = False,randomice=False)
+    
+    dataframe = pd.DataFrame(columns = data.x_column_names + data.y_column_names + data.init_column_names)
+    dataframe[data.x_column_names] = data.x_data
+    dataframe[data.y_column_names] = data.y_data
+    dataframe[data.init_column_names] = data.init
+    dataframe['date'] = [datetime(year=2000,month=1,day=1) + timedelta(days=date) for date in data.dates]
+    dataframe.sort_values(by='date',inplace=True)
+    dataframe['NAP'] = np.nan
+    dataframe['CDOM'] = np.nan
+    return dataframe
+    
+def add_run_to_dataframe(second_run_path,include_uncertainty=False,abr='output',name_index = None, ignore_name = None):
+    if include_uncertainty == False:
+        second_run_output = pd.DataFrame(columns=['RRS_'+abr+'_412','RRS_'+abr+'_442','RRS_'+abr+'_490','RRS_'+abr+'_510','RRS_'+abr+'_555',\
+                                                  'chla_'+abr,'NAP_'+abr,'CDOM_'+abr,\
+                                                  'kd_'+abr+'_412','kd_'+abr+'_442','kd_'+abr+'_490','kd_'+abr+'_510',\
+                                                  'kd_'+abr+'_555','bbp_'+abr+'_442','bbp_'+abr+'_490','bbp_'+abr+'_555'])
+        len_kd = 5
+        len_bbp = 3
+        len_chla = 3
+    else:
+
+        second_run_output = pd.DataFrame(columns=['RRS_'+abr+'_412','RRS_'+abr+'_442','RRS_'+abr+'_490','RRS_'+abr+'_510','RRS_'+abr+'_555',\
+                                                  'chla_'+abr, 'delta_chla_'+abr,'NAP_'+abr,'delta_NAP_'+abr,'CDOM_'+abr,'delta_CDOM_'+abr,\
+                                                  'kd_'+abr+'_412','delta_kd_'+abr+'_412','kd_'+abr+'_442','delta_kd_'+abr+'_442','kd_'+abr+'_490','delta_kd_'+abr+'_490','kd_'+abr+'_510','delta_kd_'+abr+'_510',\
+                                                  'kd_'+abr+'_555','delta_kd_'+abr+'_555','bbp_'+abr+'_442','delta_bbp_'+abr+'_442','bbp_'+abr+'_490','delta_bbp_'+abr+'_490','bbp_'+abr+'_555','delta_bbp_'+abr+'_555'])
+        len_kd = 10
+        len_bbp = 6
+        len_chla = 6
+
+    if name_index == None:
+        RRS_name = 'RRS_hat.npy'
+        X_name = 'X_hat.npy'
+        kd_name = 'kd_hat.npy'
+        bbp_name = 'bbp_hat.npy'
+    else:
+        RRS_name = 'RRS_hat'+'_'+name_index+'.npy'
+        X_name = 'X_hat'+'_'+name_index+'.npy'
+        kd_name = 'kd_hat'+'_'+name_index+'.npy'
+        bbp_name = 'bbp_hat'+'_'+name_index+'.npy'
+
+    second_run_output[second_run_output.columns[:5]] = np.load(second_run_path + '/'+RRS_name)
+    second_run_output[second_run_output.columns[5:5+len_chla]] = np.load(second_run_path + '/'+X_name)
+    second_run_output[second_run_output.columns[5+len_chla:5+len_chla + len_kd]] = np.load(second_run_path + '/'+kd_name)
+    second_run_output[second_run_output.columns[5+len_chla + len_kd:]] = np.load(second_run_path + '/'+bbp_name)
+    dates = np.load(second_run_path + '/dates.npy')
+    second_run_output['date'] = [datetime(year=2000,month=1,day=1) + timedelta(days=date) for date in dates]
+    second_run_output.sort_values(by='date',inplace=True)
+
+    return second_run_output
+
 if __name__ == '__main__':
     data_path = '/Users/carlos/Documents/OGS_one_d_model/npy_data'
     data = customTensorData(data_path=data_path,which='all',per_day = True,randomice=False)
     print(data.y_data[:,:10])
+
+
+
+    

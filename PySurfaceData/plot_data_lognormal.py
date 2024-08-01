@@ -23,7 +23,7 @@ from ModelOnePointFive import *
 
 import warnings
 
-
+MODEL_HOME = '/Users/carlos/Documents/OGS_one_d_model'
 
 def data_dataframe(data_path,which='all'):
     data = customTensorData(data_path=data_path,which=which,per_day = False,randomice=False)
@@ -251,67 +251,12 @@ def plot_parallel(data,columns,names,labels,statistics = True,histogram=True,fig
         plt.savefig(figname)
     else:
         plt.show()
-
-
-def plot_with_u(input_data_path = '/Users/carlos/Documents/surface_data_analisis/LastVersion/results_bayes_lognormal_logparam',\
-                figname = '/Users/carlos/Documents/surface_data_analisis/LastVersion/plot_data/bayes_lognormal_data.pdf',save=True,date_init = datetime(year=2005,month=1,day=1),\
-                third_data_path = '/Users/carlos/Documents/surface_data_analisis/LastVersion/results_VAE_VAEparam',statistics=False, num_cols = 2,figsize=(30,17),labels_names=['In situ data','Bayesian Alternate Minimization']):
-
-    data = data_dataframe('/Users/carlos/Documents/surface_data_analisis/LastVersion/npy_data')
-
-    data['NAP'] = np.nan
-    data['CDOM'] = np.nan
-    second_run = read_second_run(input_data_path,include_uncertainty=True,abr='output')
-    data = second_run.merge(data,how='right',on='date')
-    second_run = read_second_run(third_data_path,include_uncertainty=True,abr='outputVAE')
-    data = second_run.merge(data,how='right',on='date')
-    data.sort_values(by='date',inplace=True)
-    del second_run
-
     
-    lambdas_names = ['412','442','490','510','555']
-    lambdas_values = ['412.5','442.5','490','510','555']
+def plot_kd(input_data_path = MODEL_HOME + '/results_bayes_lognormal_logparam',ylim=[],\
+                figname = MODEL_HOME + '/plot_data/kd_lognormal_data.pdf',save=True,date_init = datetime(year=2005,month=1,day=1),\
+                third_data_path = MODEL_HOME + '/results_VAE_VAEparam',statistics=False, num_cols = 1,figsize=(30,17),labels_names=['In situ data','Bayesian Alternate Minimization']):
 
-    columns = []
-    names = []
-    labels = []
-    indexes = ['(a)','(b)','(c)','(d)','(e)','(f)','(g)','(h)','(i)','(j)','(k)']
-
-    for i,lam in enumerate(lambdas_names):
-        columns.append(('kd_'+ lam,'kd_output_' + lam,'delta_kd_output_'+lam,'kd_outputVAE_'+lam))
-        names.append('$kd_{'+lambdas_values[i]+'} (m^{-1}$)')
-        labels.append((*labels_names,*labels_names,'Generative Neural Network Output'))
-
-
-
-
-    columns.append(('chla','chla_output','delta_chla_output','chla_outputVAE'))
-    names.append('$Chl-a (mg/m^{3})$')
-    labels.append((*labels_names,*labels_names,'Generative Neural Network Output'))
-    for i,lam in enumerate(lambdas_names):
-        if (i == 1) or (i == 2) or (i ==4):
-            columns.append(('bbp_'+ lam,'bbp_output_' + lam,'delta_bbp_output_'+lam,'bbp_outputVAE_' + lam))
-            names.append('$b_{b,p,'+lambdas_values[i]+'} (m^{-1}$)')
-            labels.append((*labels_names,*labels_names,'Generative Neural Network Output'))
-
-    columns.append(('NAP','NAP_output','delta_NAP_output','NAP_outputVAE'))
-    names.append('$NAP (mg/m^3)$')
-    labels.append((*labels_names,*labels_names,'Generative Neural Network Output'))
-
-    columns.append(('CDOM','CDOM_output','delta_CDOM_output','CDOM_outputVAE'))
-    names.append('$CDOM (mg/m^3)$')
-    labels.append((*labels_names,*labels_names,'Generative Neural Network Output'))
-
-
-    plot_parallel(data,columns,names,labels,statistics = statistics,histogram=False,date_init = date_init,shadow_error = True,num_cols=num_cols,\
-                  figname = figname,fontsize=25,colors = 1,save=save,figsize = figsize,indexes = indexes)
-
-    
-def plot_kd(input_data_path = '/Users/carlos/Documents/surface_data_analisis/LastVersion/results_bayes_lognormal_logparam',ylim=[],\
-                figname = '/Users/carlos/Documents/surface_data_analisis/LastVersion/plot_data/kd_lognormal_data.pdf',save=True,date_init = datetime(year=2005,month=1,day=1),\
-                third_data_path = '/Users/carlos/Documents/surface_data_analisis/LastVersion/results_VAE_VAEparam',statistics=False, num_cols = 1,figsize=(30,17),labels_names=['In situ data','Bayesian Alternate Minimization']):
-
-    data = data_dataframe('/Users/carlos/Documents/surface_data_analisis/LastVersion/npy_data')
+    data = data_dataframe( MODEL_HOME + '/npy_data')
 
     data['NAP'] = np.nan
     data['CDOM'] = np.nan
@@ -340,11 +285,11 @@ def plot_kd(input_data_path = '/Users/carlos/Documents/surface_data_analisis/Las
     plot_parallel(data,columns,names,labels,statistics = statistics,histogram=False,date_init = date_init,shadow_error = True,num_cols=num_cols,\
                   figname = figname,fontsize=25,colors = 1,save=save,figsize = figsize,indexes = indexes,ylim=ylim)
 
-def plot_bbp(input_data_path = '/Users/carlos/Documents/surface_data_analisis/LastVersion/results_bayes_lognormal_logparam',ylim=[],\
-                figname = '/Users/carlos/Documents/surface_data_analisis/LastVersion/plot_data/bbp_lognormal_data.pdf',save=True,date_init = datetime(year=2005,month=1,day=1),\
-                third_data_path = '/Users/carlos/Documents/surface_data_analisis/LastVersion/results_VAE_VAEparam',statistics=False, num_cols = 2,figsize=(30,17),labels_names=['In situ data','Bayesian Alternate Minimization']):
+def plot_bbp(input_data_path = MODEL_HOME + '/results_bayes_lognormal_logparam',ylim=[],\
+                figname = MODEL_HOME + '/plot_data/bbp_lognormal_data.pdf',save=True,date_init = datetime(year=2005,month=1,day=1),\
+                third_data_path = MODEL_HOME + '/results_VAE_VAEparam',statistics=False, num_cols = 2,figsize=(30,17),labels_names=['In situ data','Bayesian Alternate Minimization']):
 
-    data = data_dataframe('/Users/carlos/Documents/surface_data_analisis/LastVersion/npy_data')
+    data = data_dataframe(MODEL_HOME + '/npy_data')
 
     data['NAP'] = np.nan
     data['CDOM'] = np.nan
@@ -373,11 +318,11 @@ def plot_bbp(input_data_path = '/Users/carlos/Documents/surface_data_analisis/La
     plot_parallel(data,columns,names,labels,statistics = statistics,histogram=False,date_init = date_init,shadow_error = True,num_cols=num_cols,\
                   figname = figname,fontsize=25,colors = 1,save=save,figsize = figsize,indexes = indexes,ylim=ylim)
 
-def plot_chla(input_data_path = '/Users/carlos/Documents/surface_data_analisis/LastVersion/results_bayes_lognormal_logparam',ylim=[],\
-                figname = '/Users/carlos/Documents/surface_data_analisis/LastVersion/plot_data/chla_lognormal_data.pdf',save=True,date_init = datetime(year=2005,month=1,day=1),\
-                third_data_path = '/Users/carlos/Documents/surface_data_analisis/LastVersion/results_VAE_VAEparam',statistics=False, num_cols = 2,figsize=(30,17),labels_names=['In situ data','Bayesian Alternate Minimization']):
+def plot_chla(input_data_path = MODEL_HOME + '/results_bayes_lognormal_logparam',ylim=[],\
+                figname = MODEL_HOME + '/plot_data/chla_lognormal_data.pdf',save=True,date_init = datetime(year=2005,month=1,day=1),\
+                third_data_path = MODEL_HOME + '/results_VAE_VAEparam',statistics=False, num_cols = 2,figsize=(30,17),labels_names=['In situ data','Bayesian Alternate Minimization']):
 
-    data = data_dataframe('/Users/carlos/Documents/surface_data_analisis/LastVersion/npy_data')
+    data = data_dataframe( MODEL_HOME + '/npy_data')
 
     data['NAP'] = np.nan
     data['CDOM'] = np.nan
@@ -414,7 +359,7 @@ def plot_chla(input_data_path = '/Users/carlos/Documents/surface_data_analisis/L
                   figname = figname,fontsize=25,colors = 1,save=save,figsize = figsize,indexes = indexes,ylim=ylim)
 
 def comparison_alphas():
-    data = data_dataframe('/Users/carlos/Documents/surface_data_analisis/LastVersion/npy_data',which = 'all')
+    data = data_dataframe(MODEL_HOME + '/npy_data',which = 'all')
     data['chla'] = np.exp(data['chla'])
     data['NAP'] = np.nan
     data['CDOM'] = np.nan
@@ -422,7 +367,7 @@ def comparison_alphas():
     second_runs_errors = pd.DataFrame(columns = ['alpha','epsilon_rrs','error_output_mean','error_mean','epsilon_error'])
     alphas = []
     k=0
-    for file_ in os.listdir('/Users/carlos/Documents/surface_data_analisis/LastVersion/results_bayes_lognormal_logparam/alphas'):
+    for file_ in os.listdir(MODEL_HOME + '/results_bayes_lognormal_logparam/alphas'):
         if file_ == 'dates.npy':
             continue
         
@@ -432,7 +377,7 @@ def comparison_alphas():
             pass
         else:
             alphas.append(alpha)
-            second_run_i = read_second_run('/Users/carlos/Documents/surface_data_analisis/LastVersion/results_bayes_lognormal_logparam/alphas',include_uncertainty=True,abr='output',name_index = alpha )
+            second_run_i = read_second_run(MODEL_HOME + '/results_bayes_lognormal_logparam/alphas',include_uncertainty=True,abr='output',name_index = alpha )
 
             second_run_i['delta_chla_output'] = np.sqrt(scipy.stats.lognorm.var(second_run_i['delta_chla_output'],scale=np.exp(second_run_i['chla_output'])))
             second_run_i['chla_output'] = scipy.stats.lognorm.median(second_run_i['delta_chla_output'],scale=np.exp(second_run_i['chla_output']))
@@ -517,18 +462,18 @@ def comparison_alphas():
 
 
                 
-def plot_scaterplot(test_indexes , vae_path = '/Users/carlos/Documents/surface_data_analisis/LastVersion/results_VAE_VAEparam' ):
-    data = data_dataframe('/Users/carlos/Documents/surface_data_analisis/LastVersion/npy_data')
+def plot_scaterplot(test_indexes , vae_path = MODEL_HOME + '/results_VAE_VAEparam' ):
+    data = data_dataframe(MODEL_HOME + '/npy_data')
 
     data['NAP'] = np.nan
     data['CDOM'] = np.nan
-    second_run = read_second_run('/Users/carlos/Documents/surface_data_analisis/LastVersion/results_bayes_lognormal_logparam',include_uncertainty=True,abr='log_output')
+    second_run = read_second_run(MODEL_HOME + '/results_bayes_lognormal_logparam',include_uncertainty=True,abr='log_output')
     data = second_run.merge(data,how='right',on='date')
-    second_run = read_second_run('/Users/carlos/Documents/surface_data_analisis/LastVersion/results_bayes_lognormal_VAEparam',include_uncertainty=True,abr='logNN_output')
+    second_run = read_second_run(MODEL_HOME + '/results_bayes_lognormal_VAEparam',include_uncertainty=True,abr='logNN_output')
     data = second_run.merge(data,how='right',on='date')
-    second_run = read_second_run('/Users/carlos/Documents/surface_data_analisis/LastVersion/results_bayes_lognormal_unperturbed',include_uncertainty=True,abr='un_output')
+    second_run = read_second_run(MODEL_HOME + '/results_bayes_lognormal_unperturbed',include_uncertainty=True,abr='un_output')
     data = second_run.merge(data,how='right',on='date')
-    second_run = read_second_run('/Users/carlos/Documents/surface_data_analisis/LastVersion/results_NN_NNparam',include_uncertainty=False,abr='NN_output')
+    second_run = read_second_run(MODEL_HOME + '/results_NN_NNparam',include_uncertainty=False,abr='NN_output')
     data = second_run.merge(data,how='right',on='date')
     second_run = read_second_run(vae_path,include_uncertainty=True,abr='VAE_output')
     data = second_run.merge(data,how='right',on='date')
@@ -646,22 +591,27 @@ def plot_scaterplot(test_indexes , vae_path = '/Users/carlos/Documents/surface_d
 
     plt.show()
 
-def plot_constants_1(vae_name = 'perturbation_factors_history_VAE.npy'):
-    perturbation_path = '/Users/carlos/Documents/surface_data_analisis/LastVersion/plot_data/perturbation_factors'
+def plot_constants_1(perturbation_path = MODEL_HOME + '/plot_data/perturbation_factors' ,vae_name = 'perturbation_factors_history_VAE.npy'):
+    
     perturbation_factors_history_NN = torch.tensor(np.load(perturbation_path + '/' +  vae_name)).to(torch.float32)
     perturbation_factors_history_lognormal = torch.tensor(np.load(perturbation_path + '/perturbation_factors_history_lognormal.npy')).to(torch.float32)
     constant = read_constants(file1='./cte_lambda.csv',file2='./cst.csv')
 
-    constants_history_NN = perturbation_factors_history_NN[:400,5:]* np.array([constant['dCDOM'],constant['sCDOM'],5.33,0.45,constant['Theta_min'],constant['Theta_o'],constant['beta'],constant['sigma'],0.005])
-    constants_history_lognormal = perturbation_factors_history_lognormal[:400,5:]* np.array([constant['dCDOM'],constant['sCDOM'],5.33,0.45,constant['Theta_min'],constant['Theta_o'],constant['beta'],constant['sigma'],0.005])
+    constants_history_NN = perturbation_factors_history_NN[:-1,5:]* np.array([constant['dCDOM'],constant['sCDOM'],5.33,0.45,constant['Theta_min'],constant['Theta_o'],constant['beta'],constant['sigma'],0.005])
+    print('.....',len(constants_history_NN))
+    constants_history_lognormal = perturbation_factors_history_lognormal[:,5:]* np.array([constant['dCDOM'],constant['sCDOM'],5.33,0.45,constant['Theta_min'],constant['Theta_o'],constant['beta'],constant['sigma'],0.005])
 
     
 
 
 
-    names = ['$d_{\\text{CDOM}}$ [$\\text{m}^2(\\text{mgCDOM})^{-1}$]','$S_{\\text{CDOM}}$ [nm]','$q_1$','$q_2$','$\Theta^{\\text{min}}_{\\text{chla}}$ [$\\text{mgChla}\\text{(mgC)}^{-1}$]','$\Theta^{\\text{0}}_{\\text{chla}}$  [$\\text{mgChla}\\text{(mgC)}^{-1}$]','$\\beta$ [$\\text{mmol}\\text{m}^{-2}\\text{s}^{-1}$]','$\sigma$  [$\\text{mmol}\\text{m}^{-2}\\text{s}^{-1}$]','$b_{b,\\text{NAP}}$']
+    names = ['$d_{\\text{CDOM}}$ [$\\text{m}^2(\\text{mgCDOM})^{-1}$]','$S_{\\text{CDOM}}$ [nm]','$q_1$','$q_2$',\
+             '$\Theta^{\\text{min}}_{\\text{chla}}$ [$\\text{mgChla}\\text{(mgC)}^{-1}$]','$\Theta^{\\text{0}}_{\\text{chla}}$  [$\\text{mgChla}\\text{(mgC)}^{-1}$]',\
+             '$\\beta$ [$\\text{mmol}\\text{m}^{-2}\\text{s}^{-1}$]','$\sigma$  [$\\text{mmol}\\text{m}^{-2}\\text{s}^{-1}$]','$b_{b,\\text{NAP}}$']
     print((constants_history_lognormal[0,0] - constants_history_lognormal[-1,0]).numpy(),(constants_history_NN[0,0] - constants_history_NN[-1,0]).numpy())
-    percentages = np.array([np.min( [np.abs((constants_history_lognormal[0,i] - constants_history_lognormal[-1,i]).numpy()), np.abs((constants_history_NN[0,i] - constants_history_NN[-1,i]).numpy())]   )/np.max( [np.abs((constants_history_lognormal[0,i] - constants_history_lognormal[-1,i]).numpy()), np.abs((constants_history_NN[0,i] - constants_history_NN[-1,i]).numpy())]   ) for i in range(9)])
+    percentages = np.array([np.min( [np.abs((constants_history_lognormal[0,i] - constants_history_lognormal[-1,i]).numpy()),\
+                                     np.abs((constants_history_NN[0,i] - constants_history_NN[-1,i]).numpy())]   )/np.max( [np.abs((constants_history_lognormal[0,i] - constants_history_lognormal[-1,i]).numpy()),\
+                                                                                                                            np.abs((constants_history_NN[0,i] - constants_history_NN[-1,i]).numpy())]   ) for i in range(9)])
     print([names[i] if percentages[i]>0.5 else '' for i in range(len(percentages))])
     print(percentages[percentages>0.5],'relative change between them.........................')
 
@@ -688,9 +638,8 @@ def plot_constants_1(vae_name = 'perturbation_factors_history_VAE.npy'):
 
     plt.show()
 
-def plot_constants_2(vae_name = 'perturbation_factors_history_VAE.npy'):
+def plot_constants_2(perturbation_path = '/Users/carlos/Documents/OGS_one_d_model/plot_data/perturbation_factors',vae_name = 'perturbation_factors_history_VAE.npy'):
     
-    perturbation_path = '/Users/carlos/Documents/surface_data_analisis/LastVersion/plot_data/perturbation_factors'
     perturbation_factors_history_NN = torch.tensor(np.load(perturbation_path + '/'+vae_name)).to(torch.float32)[:400]
     perturbation_factors_history_lognormal = torch.tensor(np.load(perturbation_path + '/perturbation_factors_history_lognormal.npy')).to(torch.float32)[:400]
     constant = read_constants(file1='./cte_lambda.csv',file2='./cst.csv')
@@ -705,8 +654,10 @@ def plot_constants_2(vae_name = 'perturbation_factors_history_VAE.npy'):
         #print('a')
         #print((storical_absortion_ph_lognormal[-1] - storical_absortion_ph_NN[-1]))
 
-        percentages = np.abs((   np.abs(storical_absortion_ph_lognormal.T[0] - storical_absortion_ph_lognormal.T[-1])   -   np.abs(storical_absortion_ph_NN.T[0] - storical_absortion_ph_NN.T[-1])   )/((storical_absortion_ph_lognormal.T[0] - storical_absortion_ph_lognormal.T[-1])))
-        print(np.abs(storical_absortion_ph_lognormal.T[0] - storical_absortion_ph_lognormal.T[-1]),np.abs(storical_absortion_ph_NN.T[0] - storical_absortion_ph_NN.T[-1]), np.abs(storical_absortion_ph_lognormal.T[0] - storical_absortion_ph_lognormal.T[-1])   -   np.abs(storical_absortion_ph_NN.T[0] - storical_absortion_ph_NN.T[-1]) )
+        percentages = np.abs((   np.abs(storical_absortion_ph_lognormal.T[0] - storical_absortion_ph_lognormal.T[-1])   -   \
+                                 np.abs(storical_absortion_ph_NN.T[0] - storical_absortion_ph_NN.T[-1])   )/((storical_absortion_ph_lognormal.T[0] - storical_absortion_ph_lognormal.T[-1])))
+        print(np.abs(storical_absortion_ph_lognormal.T[0] - storical_absortion_ph_lognormal.T[-1]),np.abs(storical_absortion_ph_NN.T[0] - storical_absortion_ph_NN.T[-1]),\
+              np.abs(storical_absortion_ph_lognormal.T[0] - storical_absortion_ph_lognormal.T[-1])   -   np.abs(storical_absortion_ph_NN.T[0] - storical_absortion_ph_NN.T[-1]) )
         print(percentages[percentages<1],'relative change between them.........................')
 
 
@@ -784,34 +735,35 @@ def plot_constants_2(vae_name = 'perturbation_factors_history_VAE.npy'):
 
 #plt.close()
 
-test_indexes,train_indexes = customTensorData(data_path='LastVersion/npy_data',which='train',per_day = False,randomice=True,one_dimensional = True,seed = 1853).test_indexes,\
-    customTensorData(data_path='LastVersion/npy_data',which='train',per_day = False,randomice=True,one_dimensional = True,seed = 1853).train_indexes
+test_indexes,train_indexes = customTensorData(data_path='npy_data',which='train',per_day = False,randomice=True,one_dimensional = True,seed = 1853).test_indexes,\
+    customTensorData(data_path='npy_data',which='train',per_day = False,randomice=True,one_dimensional = True,seed = 1853).train_indexes
 
 
-plot_scaterplot(test_indexes,vae_path = '/Users/carlos/Documents/surface_data_analisis/LastVersion/results_VAE_VAEparam')
-plot_constants_1(vae_name = 'perturbation_factors_history_VAE.npy')
-plot_constants_2(vae_name = 'perturbation_factors_history_VAE.npy')
+plot_scaterplot(test_indexes,vae_path = MODEL_HOME + '/VAE_model/results_VAE_VAEparam')
+plot_constants_1(vae_name = 'perturbation_factors_history_CVAE_two.npy')
+plot_constants_2(vae_name = 'perturbation_factors_history_CVAE_two.npy')
+print(asdfasdf)
 
-plot_kd(input_data_path = '/Users/carlos/Documents/surface_data_analisis/LastVersion/results_bayes_lognormal_logparam',\
-                figname = '/Users/carlos/Documents/surface_data_analisis/LastVersion/plot_data/kd_lognormal_data.pdf',save=True,date_init = datetime(year=2012,month=1,day=1),\
+plot_kd(input_data_path = MODEL_HOME + '/results_bayes_lognormal_logparam',\
+                figname = MODEL_HOME + '/plot_data/kd_lognormal_data.pdf',save=True,date_init = datetime(year=2012,month=1,day=1),\
                 statistics=False, num_cols = 1,labels_names=['In situ data','Bayesian MAP output and Uncertainty'],ylim=[0,0.31],figsize=(17,17),\
-        third_data_path = '/Users/carlos/Documents/surface_data_analisis/LastVersion/results_VAE_VAEparam')
+        third_data_path = MODEL_HOME + '/results_VAE_VAEparam')
 
-plot_bbp(input_data_path = '/Users/carlos/Documents/surface_data_analisis/LastVersion/results_bayes_lognormal_logparam',\
-                figname = '/Users/carlos/Documents/surface_data_analisis/LastVersion/plot_data/bbp_lognormal_data.pdf',save=True,date_init = datetime(year=2012,month=1,day=1),\
+plot_bbp(input_data_path = MODEL_HOME + '/results_bayes_lognormal_logparam',\
+                figname = MODEL_HOME + '/plot_data/bbp_lognormal_data.pdf',save=True,date_init = datetime(year=2012,month=1,day=1),\
                 statistics=False, num_cols = 1,labels_names=['In situ data','Bayesian MAP output and Uncertainty'],ylim=[],figsize=(17,12),\
-         third_data_path = '/Users/carlos/Documents/surface_data_analisis/LastVersion/results_VAE_VAEparam')
+         third_data_path = MODEL_HOME + '/results_VAE_VAEparam')
 
-plot_chla(input_data_path = '/Users/carlos/Documents/surface_data_analisis/LastVersion/results_bayes_lognormal_logparam',\
-                figname = '/Users/carlos/Documents/surface_data_analisis/LastVersion/plot_data/chla_lognormal_data.pdf',save=True,date_init = datetime(year=2012,month=1,day=1),\
+plot_chla(input_data_path = MODEL_HOME + '/results_bayes_lognormal_logparam',\
+                figname = MODEL_HOME + '/plot_data/chla_lognormal_data.pdf',save=True,date_init = datetime(year=2012,month=1,day=1),\
                 statistics=False, num_cols = 1,labels_names=['In situ data','Bayesian MAP output and Uncertainty'],ylim=[],figsize=(17,12),\
-          third_data_path = '/Users/carlos/Documents/surface_data_analisis/LastVersion/results_VAE_VAEparam')
+          third_data_path = MODEL_HOME + '/results_VAE_VAEparam')
 
 
-plot_chla(input_data_path = '/Users/carlos/Documents/surface_data_analisis/LastVersion/results_bayes_lognormal_logparam',\
-                figname = '/Users/carlos/Documents/surface_data_analisis/LastVersion/plot_data/chla_lognormal_data.pdf',save=True,date_init = datetime(year=2012,month=1,day=1),\
+plot_chla(input_data_path = MODEL_HOME + '/results_bayes_lognormal_logparam',\
+                figname = MODEL_HOME + '/plot_data/chla_lognormal_data.pdf',save=True,date_init = datetime(year=2012,month=1,day=1),\
                 statistics=False, num_cols = 1,labels_names=['In situ data','Bayesian MAP output and Uncertainty'],ylim=[],figsize=(17,12),\
-          third_data_path = '/Users/carlos/Documents/surface_data_analisis/LastVersion/results_VAE_VAEparam')
+          third_data_path = MODEL_HOME + '/results_VAE_VAEparam')
 
 
 #plot_with_u(input_data_path = '/Users/carlos/Documents/surface_data_analisis/LastVersion/results_bayes_lognormal_logparam',\
@@ -823,15 +775,15 @@ data = data_dataframe('/Users/carlos/Documents/surface_data_analisis/LastVersion
 
 data['NAP'] = np.nan
 data['CDOM'] = np.nan
-second_run = read_second_run('/Users/carlos/Documents/surface_data_analisis/LastVersion/results_bayes_lognormal_logparam',include_uncertainty=True,abr='log_output')
+second_run = read_second_run(MODEL_HOME + '/results_bayes_lognormal_logparam',include_uncertainty=True,abr='log_output')
 data = second_run.merge(data,how='right',on='date')
-second_run = read_second_run('/Users/carlos/Documents/surface_data_analisis/LastVersion/results_bayes_lognormal_VAEparam',include_uncertainty=True,abr='logNN_output')
+second_run = read_second_run(MODEL_HOME + '/results_bayes_lognormal_VAEparam',include_uncertainty=True,abr='logNN_output')
 data = second_run.merge(data,how='right',on='date')
-second_run = read_second_run('/Users/carlos/Documents/surface_data_analisis/LastVersion/results_bayes_lognormal_unperturbed',include_uncertainty=True,abr='un_output')
+second_run = read_second_run(MODEL_HOME + '/results_bayes_lognormal_unperturbed',include_uncertainty=True,abr='un_output')
 data = second_run.merge(data,how='right',on='date')
-second_run = read_second_run('/Users/carlos/Documents/surface_data_analisis/LastVersion/results_NN_NNparam',include_uncertainty=False,abr='NN_output')
+second_run = read_second_run(MODEL_HOME + '/results_NN_NNparam',include_uncertainty=False,abr='NN_output')
 data = second_run.merge(data,how='right',on='date')
-second_run = read_second_run('/Users/carlos/Documents/surface_data_analisis/LastVersion/results_VAE_VAEparam',include_uncertainty=True,abr='VAE_output')
+second_run = read_second_run(MODEL_HOME + '/results_VAE_VAEparam',include_uncertainty=True,abr='VAE_output')
 data = second_run.merge(data,how='right',on='date')
 data.sort_values(by='date',inplace=True)
 del second_run

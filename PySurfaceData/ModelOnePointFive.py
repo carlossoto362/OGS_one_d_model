@@ -825,18 +825,20 @@ class NNConvolutionalModel(nn.Module):
         y_sample = y_hat_mean + (sigma @ normal_samples )[:,:,:,0]
         
         y_use = y_sample.clone()
+
         y_use[:,:,0] = y_sample[:,:,0] * self.y_std[0] + self.y_mean[0]
 
-
         X = self.rearange_RRS(image)
+
         rrs_ = self.Forward_Model(X,parameters = y_use,constant = self.constant)
         rrs_ = (rrs_ - self.x_mean[:5])/self.x_std[:5]
- 
+
         kd_ = kd(9.,X[:,:,0],X[:,:,1],X[:,:,2],X[:,:,3],X[:,:,4],torch.exp(y_use[:,:,0]),torch.exp(y_use[:,:,1]),torch.exp(y_use[:,:,2]),self.Forward_Model.perturbation_factors,constant = self.constant)
         kd_ = (kd_  - self.y_mean[1:6])/self.y_std[1:6]
 
         bbp_ = bbp(X[:,:,0],X[:,:,1],X[:,:,2],X[:,:,3],X[:,:,4],torch.exp(y_use[:,:,0]),torch.exp(y_use[:,:,1]),torch.exp(y_use[:,:,2]),self.Forward_Model.perturbation_factors,constant = self.constant)[:,[1,2,4]]
         bbp_ = (bbp_ - self.y_mean[6:])/self.y_std[6:9]
+
 
         y_hat_mean[:,:,0] = y_hat_mean[:,:,0] * self.y_std[0] + self.y_mean[0]
         y_hat_mean = y_hat_mean[:,0,:]
@@ -1292,219 +1294,6 @@ def track_parameters(data_path = '/Users/carlos/Documents/OGS_one_d_model/npy_da
     np.save(output_path + '/test_loss_each_10_lognormal.npy',np.array(test_loss) )
     np.save(output_path + '/train_loss_lognormal.npy',np.array(p_ls) )
 
-def plot_tracked_parameters(data_path='/Users/carlos/Documents/OGS_one_d_model/plot_data', perturbation_factors_history = [], test_loss = [], train_loss = [],\
-                            save = True,save_file_name = '/perturbation_factors_lognormal.pdf',color_palet = 1, with_loss = False, side='right'):
-
-    if len(perturbation_factors_history) > 0 :
-        to_plot = perturbation_factors_history
-    else:
-        to_plot = np.load(data_path + '/past_parameters_lognormal.npy')[:200]
-    if len(test_loss)>0:
-        test_loss = test_loss
-    else:
-        test_loss = np.load(data_path + '/test_loss_each_10.npy')[:int(200/10)]
-    if len(train_loss) > 0:
-        p_ls = train_loss
-    else:
-        p_ls = np.load(data_path + '/train_loss.npy')[:200]
-    iterations = len(to_plot)
-    constant = read_constants(file1='./cte_lambda.csv',file2='./cst.csv')
-    
-    perturbation_factors_names = [
-            '$\epsilon_{a,ph}$',
-            '$\epsilon_{tangent,s,ph}$',
-            '$\epsilon_{intercept,s,ph}$',
-            '$\epsilon_{tangent,b,ph}$',
-            '$\epsilon_{intercept,b,ph}$',
-            '$\epsilon_{a,cdom}$',
-            '$\epsilon_{exp,cdom}$',
-            '$\epsilon_{q,1}$',
-            '$\epsilon_{q,2}$',
-            '$\epsilon_{theta,min}$',
-            '$\epsilon_{theta,o}$',
-            '$\epsilon_\\beta$',
-            '$\epsilon_\sigma$',
-            '$\epsilon_{b,nap}$',
-    ]
-    if color_palet == 1:
-        colors = plt.cm.ocean(np.linspace(0,1,17))
-        cmap_ = plt.cm.Blues
-    elif color_palet == 2:
-        colors = plt.cm.copper(np.linspace(-1,1,14))
-        cmap_ = plt.cm.Oranges
-        
-    linestyle_tuple = [
-        ('lt1',        (0, (1, 6))),
-        ('loosely dotted',        (0, (6,1,1,1))),
-        ('asdf',                (0, (1, 2))),
-        ('densely dashdotdotted', (0, (3,2,3,2,1,2))),
-        ('densely dotted',        (0, (1, 0.5))),
-        ('long dash with offset', (0, (3, 1))),
-        ('loosely dashed',        (0, (3, 1,1,1))),
-        ('dashed',                (0, (3, 1,1,1,1,1))),
-        ('densely dashed',        (0, (3, 3))),
-        
-        ('loosely dashdotted',    (0, (6, 2))),
-        ('dashdotted',            (0, (6,2,1,2))),
-        ('densely dashdotted',    (0, (6,2,3,2))),
-
-        ('dashdotdotted',         (0, (6,1,1,1,1))),
-        ('loosely dashdotdotted', (0, (6,1,3,1,3,1))),
-
-
-    ]
-
-    fig, axs = plt.subplots(ncols = 3, nrows = 2, figsize=(15,10),width_ratios = [1/3,1/3,1/3])
-    gs = axs[0, 0].get_gridspec()
-    for ax in axs[0, :]:
-        ax.remove()
-    axbig = fig.add_subplot(gs[0, :])
-
-    
-        
-    for i in range(14):
-        axbig.plot(np.arange(iterations),to_plot[:,i],label=perturbation_factors_names[i],color = colors[i],linestyle=linestyle_tuple[i][1], alpha = 0.8)
-    axbig.set_ylabel('Perturbation factors $\epsilon$',fontsize=20)
-    if with_loss == True:
-        axbig2 = axbig.twinx()
-        axbig2.set_ylabel('Loss Error',fontsize=20)
-        spacing = int(len(p_ls)/len(test_loss))
-        axbig2.plot(np.arange(0,iterations,spacing),test_loss,color = 'gray',label='Test Error', alpha=0.4, lw=3)
-        axbig2.plot(np.arange(0,iterations,1),p_ls,color = 'black',label='Train Error', alpha=0.6, lw=3)
-        axbig2.tick_params(axis='y', labelsize=20)
-        if side == 'right':
-            axbig2.legend(fontsize="14.5",bbox_to_anchor=(1.06,1.),loc='lower right')
-        elif side =='left':
-            axbig2.legend(fontsize="14.5",bbox_to_anchor=(0.08,1.13),loc='lower right')
-        axbig2.yaxis.set_major_formatter(ticker.StrMethodFormatter('{x:.3f}'))
-        legend_fontsize_perturbation_factors = "14"
-        legend_num_cols = 6
-
-    else:
-        legend_fontsize_perturbation_factors = "16"
-        legend_num_cols = 7
-        
-    axbig.set_xlabel('Number of iterations',fontsize=20)
-    if side == 'left':
-        loc = 'lower right'
-        bbox_to_anchor = (1.,1.)
-
-    elif side == 'right':
-        loc = 'lower left'
-        bbox_to_anchor = (0.,1.)
-        if with_loss == False:
-            axbig.yaxis.set_label_position("right")
-            axbig.yaxis.tick_right()
-        
-    axbig.legend(fontsize="14.5",bbox_to_anchor=bbox_to_anchor,ncol=legend_num_cols,loc=loc)
-    axbig.tick_params(axis='y', labelsize=20)
-    axbig.tick_params(axis='x', labelsize=20)
-    axbig.set_ylim(0.5,1.7)
-    
-
-
-    plot_track_absortion_ph(axs[1,0],constant,to_plot,iterations,cmap=cmap_)
-    plot_track_scattering_ph(axs[1,1],constant,to_plot,iterations,cmap=cmap_)
-    plot_track_backscattering_ph(axs[1,2],constant,to_plot,iterations,cmap=cmap_)
-
-    if side == 'right':
-        cax = plt.axes((0.93,0.075,0.01,0.325))
-        loc = 'right'
-        if with_loss == True:
-            fig.subplots_adjust(right=2)
-        else:
-            fig.subplots_adjust(right=0.88)
-
-    elif side == 'left':
-
-        loc = 'left'
-        if with_loss == True:
-            fig.subplots_adjust(left=0.3)
-            cax = plt.axes((0.05,0.075,0.01,0.325))
-        else:
-            fig.subplots_adjust(left=0.18)
-            cax = plt.axes((0.07,0.075,0.01,0.325))
-    cl = fig.colorbar(cax = cax,mappable = matplotlib.cm.ScalarMappable(norm=matplotlib.colors.Normalize(vmin=0, vmax=iterations), cmap=cmap_),orientation='vertical', fraction=1.,pad=0, location = loc)
-    cl.ax.tick_params(labelsize=15)
-    cl.set_label(label='Number of iterations',size=15)
-    
-    if side == 'left':
-        positions = [(-0.05,1.1),(-0.1,1.1)]
-        texts = ['(a)','(b)','(c)','(d)']
-    elif side == 'right':
-        positions = [(-0.05,1.1),(-0.1,1.1)]#[(1.05,1.1),(1.1,1.1)]
-        texts = ['(e)','(f)','(g)','(h)']
-        for ax in axs[1,:]:
-            ax.yaxis.set_label_position("right")
-            ax.yaxis.tick_right()
-    axbig.text(positions[0][0],positions[0][1],texts[0],transform = axbig.transAxes,fontsize='20')
-    axs[1,0].text(positions[1][0],positions[1][1],texts[1],transform = axs[1,0].transAxes,fontsize='20')
-    axs[1,1].text(positions[1][0],positions[1][1],texts[2],transform = axs[1,1].transAxes,fontsize='20')
-    axs[1,2].text(positions[1][0],positions[1][1],texts[3],transform = axs[1,2].transAxes,fontsize='20')
-
-    
-    fig.tight_layout()
-
-    #plt.show()
-    if save == True:
-        plt.savefig(data_path + save_file_name)
-        plt.close()
-    else:
-        plt.show()
-        plt.close()
-
-def plot_track_absortion_ph(ax_,constant,past_perturbation_factors,len_past,cmap = plt.cm.Blues):
-
-    lambdas = np.array([412.5,442.5,490,510,555])
-    storical_absortion_ph =   (   past_perturbation_factors[:,0].reshape((len_past,1))*constant['absortion_PH'].numpy() ).T
-
-
-    colors = cmap(np.linspace(0,1,15))
-            
-    for i in range(15):
-        ax_.plot(lambdas,storical_absortion_ph[:,int((len_past/15)*i)],color = colors[i])
-    ax_.set_xticks(lambdas,['412.5','442.5','490','510','555'])
-    ax_.set_xlabel('Wavelenght (nm)',fontsize=15)
-    ax_.set_ylabel('$a_{PH}$ $(m^2mgChl^{-1})$',fontsize=15)
-    ax_.tick_params(axis='y', labelsize=15)
-    ax_.tick_params(axis='x', labelsize=15)
-    ax_.set_ylim(0,0.06)
-    
-
-
-def plot_track_scattering_ph(ax_,constant,past_perturbation_factors,len_past, cmap = plt.cm.Blues):
-
-    lambdas = np.array([412.5,442.5,490,510,555])
-    storical_scattering_ph =   (   past_perturbation_factors[:,1].reshape((len_past,1))*constant['linear_regression_slope_s']*lambdas\
-                                   +   past_perturbation_factors[:,2].reshape((len_past,1))*constant['linear_regression_intercept_s'] ).T
-
-    colors = cmap(np.linspace(0,1,15))
-        
-    for i in range(15):
-        ax_.plot(lambdas,storical_scattering_ph[:,int((len_past/15)*i)],color = colors[i])
-    ax_.set_xticks(lambdas,['412.5','445.5','490','510','555'])
-    ax_.set_xlabel('Wavelenght (nm)',fontsize=15)
-    ax_.set_ylabel('$b_{PH}$ $(m^2mgChl^{-1})$',fontsize=15)
-    ax_.tick_params(axis='y', labelsize=15)
-    ax_.tick_params(axis='x', labelsize=15)
-    ax_.set_ylim(0.005,0.030)
-    
-def plot_track_backscattering_ph(ax_,constant,past_perturbation_factors,len_past,cmap = plt.cm.Blues):
-
-    lambdas = np.array([412.5,442.5,490,510,555])
-    storical_scattering_ph =   (   past_perturbation_factors[:,3].reshape((len_past,1))*constant['linear_regression_slope_b']*lambdas\
-                                   +   past_perturbation_factors[:,4].reshape((len_past,1))*constant['linear_regression_intercept_b'] ).T
-
-    colors = cmap(np.linspace(0,1,15))
-
-    for i in range(15):
-        ax_.plot(lambdas,storical_scattering_ph[:,int((len_past/15)*i)],color = colors[i])
-    ax_.set_xticks(lambdas,['412.5','445.5','490','510','555'])
-    ax_.set_xlabel('Wavelenght (nm)',fontsize=15)
-    ax_.set_ylabel('$b_{b,PH}$ $(m^2mgChl^{-1})$',fontsize=15)
-    ax_.tick_params(axis='y', labelsize=15)
-    ax_.tick_params(axis='x', labelsize=15)
-    ax_.set_ylim(2.5e-5,5.5e-5)
 
 def track_alphas(output_path = '/Users/carlos/Documents/OGS_one_d_model/results_bayes_lognormal_logparam/alphas'):
     perturbation_path = '/Users/carlos/Documents/OGS_one_d_model/plot_data/perturbation_factors/'
@@ -1561,6 +1350,8 @@ def test_diim():
     dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
     s_a = s_a_*4.9
 
+    
+
     seeds = np.linspace(5487,69745,50)
     times = np.empty(50)
     for i,seed in enumerate(seeds):
@@ -1592,7 +1383,7 @@ if __name__ == '__main__':
     data_path = '/Users/carlos/Documents/OGS_one_d_model/npy_data'
     output_path = '/Users/carlos/Documents/OGS_one_d_model/results_bayes_lognormal_logparam/alphas'
     #track_alphas(output_path = output_path)
-    track_parameters(iterations=500)
+    #track_parameters(iterations=500)
     #print(asdfadsf)
     #plot_tracked_parameters(data_path='/Users/carlos/Documents/surface_data_analisis/LastVersion/plot_data',save=True,color_palet=2,side = 'left',with_loss =False)
     #plot_track_absortion_ph(data_path = data_path)
@@ -1605,7 +1396,7 @@ if __name__ == '__main__':
     #iterations = len(to_plot)
     #constant = read_constants(file1='./cte_lambda.csv',file2='./cst.csv')
     data = customTensorData(data_path=data_path,which='all',per_day = True,randomice=False)
-    perturbation_factors = torch.tensor(np.load(perturbation_path + '/perturbation_factors_history_VAE.npy')[-1]).to(torch.float32)
+    perturbation_factors = torch.tensor(np.load(perturbation_path + '/perturbation_factors_history_CVAE_two.npy')[-2]).to(torch.float32)
     #perturbation_factors = torch.ones(14)
     #print(perturbation_factors)
     
@@ -1620,6 +1411,7 @@ if __name__ == '__main__':
     batch_size = data.len_data
     dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
     s_a = s_a_*4.9
+
     model = Forward_Model(num_days=batch_size).to(my_device)
     model.perturbation_factors = perturbation_factors
     loss = custom_Loss(x_a,s_a,s_e,num_days=batch_size,my_device = my_device)

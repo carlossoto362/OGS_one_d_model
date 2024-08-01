@@ -1,0 +1,72 @@
+
+
+import Forward_module as fm
+import read_data_module as rdm
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
+import pandas as pd
+import os
+import scipy
+from scipy import stats
+import time
+import sys
+
+
+
+MODEL_HOME = '/Users/carlos/Documents/OGS_one_d_model'
+
+
+def save_var_uncertainties(Forward_Model, X, chla_hat_mean, covariance_matrix,rrs_hat, constant = None, save_path ='/Users/carlos/Documents/OGS_one_d_model/VAE_model/results_VAE_VAEparam',dates = [] ):
+    parameters_eval = chla_hat_mean.unsqueeze(1)
+    evaluate_model = fm.evaluate_model_class(Forward_Model,X,constant=constant)
+        
+    X_hat = np.empty((len(parameters_eval),6))
+    X_hat[:,::2] = chla_hat_mean.clone().detach()
+    X_hat[:,1::2] = torch.sqrt(torch.diagonal(covariance_matrix,dim1=1,dim2=2).clone().detach())
+       
+    kd_hat = torch.empty((len(parameters_eval),10))
+    bbp_hat = torch.empty((len(parameters_eval),6))
+    bbp_index = 0
+
+    kd_values = evaluate_model.kd_der(parameters_eval)
+    kd_derivative = torch.empty((len(parameters_eval),5,3))
+    kd_derivative_ = torch.autograd.functional.jacobian(evaluate_model.kd_der,inputs=(parameters_eval))
+    
+    for i in range(len(parameters_eval)):
+        kd_derivative[i] = torch.reshape(kd_derivative_[i,:,i,:,:],(5,3))
+               
+    kd_delta = fm.error_propagation(kd_derivative,covariance_matrix)
+    kd_hat[:,::2] = kd_values.clone().detach()
+    kd_hat[:,1::2] = torch.sqrt(kd_delta).clone().detach()
+    bbp_values = evaluate_model.bbp_der(parameters_eval)
+
+    bbp_derivative = torch.empty((len(parameters_eval),3,3))
+    bbp_derivative_ = torch.autograd.functional.jacobian(evaluate_model.bbp_der,inputs=(parameters_eval))
+    for i in range(len(parameters_eval)):
+        bbp_derivative[i] = torch.reshape(bbp_derivative_[i,:,i,:,:],(3,3))
+        
+    bbp_delta = fm.error_propagation(bbp_derivative,covariance_matrix)
+    bbp_hat[:,::2] = bbp_values.clone().detach()
+    bbp_hat[:,1::2] = torch.sqrt(bbp_delta).clone().detach()
+
+    rrs_hat = rrs_hat.clone().detach() 
+
+    np.save(save_path + '/X_hat.npy',X_hat)
+    np.save(save_path + '/RRS_hat.npy',rrs_hat)
+    np.save(save_path + '/kd_hat.npy',kd_hat)
+    np.save(save_path + '/bbp_hat.npy',bbp_hat)
+    np.save(save_path + '/dates.npy',dates)
+
+
+                
+data_dir = HOME_PATH + '/npy_data'
+
+my_device = 'cpu'
+
+constant = rdm.read_constants(file1=data_dir + '/../cte_lambda.csv',file2=data_dir+'/../cst.csv',my_device = my_device)
+data = rdm.customTensorData(data_path=data_dir,which='all',per_day = False,randomice=False,one_dimensional = True,seed = 1853,device=my_device,normilized_NN='scaling')
+dataloader = DataLoader(data, batch_size=len(data.x_data), shuffle=False)
+
+chla = np.load( HOME_PATH + '/VAE_model/results_VAE_VAEparam/X_hat.npy')
+print(chla.shape)
