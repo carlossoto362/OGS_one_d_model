@@ -174,7 +174,6 @@ class customTensorData():
             self.y_add = torch.tensor(self.y_min).to(self.precision)
             
         self.device = device
-
             
         
     def __len__(self):
@@ -186,7 +185,7 @@ class customTensorData():
             if self.per_day == True:
                 label = torch.empty((5))
                 label[:] = torch.tensor(self.y_data[self.my_indexes][idx])
-
+                
                 image = torch.empty((5,5))
                 image[:,0] = torch.tensor(self.x_data[self.my_indexes][idx][:5])
                 image[:,1] = torch.tensor(self.x_data[self.my_indexes][idx][5:10])

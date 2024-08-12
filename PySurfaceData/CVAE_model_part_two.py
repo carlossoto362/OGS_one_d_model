@@ -139,9 +139,9 @@ class NN_second_layer(nn.Module):
         Cholesky_z = torch.tril(self.linear_celu_stack_cov(x).flatten(1).reshape((x.shape[0],3,3)))/10
 
 
-        epsilon = torch.randn(torch.Size([x.shape[0],1,3]),generator=torch.Generator().manual_seed(0))
-        z_hat = mu_z + torch.transpose(Cholesky_z@torch.transpose(epsilon,dim0=1,dim1=2),dim0=1,dim1=2).flatten(1) #transforming to do matmul in the correct dimention, then going back to normal.
+        epsilon = torch.randn(torch.Size([x.shape[0],1,3]),generator=torch.Generator().manual_seed(0)).to(self.my_device)
 
+        z_hat = mu_z + torch.transpose(Cholesky_z@torch.transpose(epsilon,dim0=1,dim1=2),dim0=1,dim1=2).flatten(1) #transforming to do matmul in the correct dimention, then going back to normal.
         z_hat_inter = z_hat
         z_hat = (z_hat * self.y_mul[0] + self.y_add[0]).unsqueeze(1)
         image = self.rearange_RRS(image)
@@ -165,19 +165,25 @@ class NN_second_layer(nn.Module):
 
 class composed_loss_function(nn.Module):
 
-    def __init__(self,precision = torch.float32,my_device = 'cpu',rrs_mul=torch.ones(5),chla_mul=torch.ones(1),kd_mul=torch.ones(5),bbp_mul=torch.ones(3)):
+    def __init__(self,precision = torch.float32,my_device = 'cpu',rrs_mul=torch.ones(5),chla_mul=torch.ones(1),kd_mul=torch.ones(5),bbp_mul=torch.ones(3),dk_alpha=0.001):
         super(composed_loss_function, self).__init__()
+        self.dk_alpha=dk_alpha
         self.precision = precision
-        self.s_e = torch.diag(torch.tensor([1.5e-3,1.2e-3,1e-3,8.6e-4,5.7e-4])**(2))
+        self.s_e = torch.diag(torch.tensor([1.5e-3,1.2e-3,1e-3,8.6e-4,5.7e-4])**(2)).to(my_device)
+        self.my_device = my_device
         
-        s_a = torch.eye(3)*4.9
-        self.s_a = chla_mul**(-2) * s_a
-        self.s_a_inv = s_a.inverse()
+        s_a = (torch.eye(3)*4.6) #s_a is different to avoid big values of chla
+
+        self.s_a = (chla_mul**(-2) * s_a).to(my_device)
+
+        self.s_a_inv = s_a.inverse().to(my_device)
+
+        rrs_mul = rrs_mul.to(my_device)
         
         
         rrs_cov = torch.diag(rrs_mul**(-1)).T @ (self.s_e @ torch.diag(rrs_mul**(-1))) # s_e is the covariance matriz of rrs before normalization
         
-        self.rrs_cov_inv = rrs_cov.inverse().to(torch.float32)
+        self.rrs_cov_inv = rrs_cov.inverse().to(torch.float32).to(my_device)
 
         Y_cov = torch.empty(9)
         Y_cov[0] = chla_mul
@@ -186,24 +192,22 @@ class composed_loss_function(nn.Module):
 
 
         Y_cov = torch.diag(Y_cov**(-1)).T @ (torch.eye(9) @ torch.diag(Y_cov**(-1))) #originally, the cov_inv was multiply by /len(data)
-        self.Y_cov_inv = Y_cov.inverse().to(torch.float32)
+        self.Y_cov_inv = Y_cov.inverse().to(torch.float32).to(my_device)
 
 
     def forward(self,pred_,Y_obs,rrs,rrs_pred,nan_array,cov_z=None,mu_z=None):
 
         rrs_error = torch.trace(   (rrs - rrs_pred) @ ( self.rrs_cov_inv @ (rrs - rrs_pred ).T ) )/(5*pred_.shape[0])
-        lens = torch.tensor([len(element[~element.isnan()])  for element in nan_array]).to(self.precision)
-        test = (pred_ - Y_obs)@self.Y_cov_inv
+        lens = torch.tensor([len(element[~element.isnan()])  for element in nan_array]).to(self.precision).to(self.my_device)
         obs_error = torch.trace(   ((pred_ - Y_obs) @ ( self.Y_cov_inv @ (pred_ - Y_obs ).T ))/lens )/pred_.shape[0]
-        
         DK = 0.5* torch.sum(torch.log(torch.linalg.det(self.s_a)) - torch.log(torch.linalg.det(cov_z))  + torch.vmap(torch.trace)(self.s_a_inv @ cov_z)   )/pred_.shape[0]\
-            + 0.5* torch.sum(  mu_z.unsqueeze(1) @ self.s_a_inv @ torch.transpose(mu_z.unsqueeze(1),dim0=1,dim1=2)) /(3*pred_.shape[0])
-                
-        return rrs_error + 10*obs_error + DK 
+            + 0.5* torch.sum(  (mu_z.unsqueeze(1) + 3.1880) @ self.s_a_inv @ torch.transpose((mu_z.unsqueeze(1) + 3.1880),dim0=1,dim1=2)) /(3*pred_.shape[0])
+        
+        return (rrs_error + 10*obs_error + DK*self.dk_alpha).to(self.my_device)
 
 
 
-def mask_nans(Y,kd_pred,bbp_pred,chla_pred):
+def mask_nans(Y,kd_pred,bbp_pred,chla_pred,my_device = 'cpu'):
 
     Y_is_nan = torch.isnan(Y)
     Y_masked = torch.masked_fill(Y,Y_is_nan,0)[:,0,:]
@@ -212,55 +216,48 @@ def mask_nans(Y,kd_pred,bbp_pred,chla_pred):
     pred_masked[:,1:6] = torch.masked_fill(kd_pred,Y_is_nan[:,0,1:6],0)
     pred_masked[:,6:] = torch.masked_fill(bbp_pred,Y_is_nan[:,0,6:9],0)
     pred_masked[:,0] = torch.masked_fill(chla_pred[:,0],Y_is_nan[:,0,0],0)
-    return Y_masked,pred_masked
+    return Y_masked.to(my_device),pred_masked.to(my_device)
 
-def train_one_epoch(epoch_index,training_dataloader,loss_fn,optimizer,model,dates=None,num_samples=1):
+def train_one_epoch(epoch_index,training_dataloader,loss_fn,optimizer,model,dates=None,num_samples=1,my_device = 'cpu'):
        
-    running_loss = 0.
+    def one_sample(data):
+        inputs,labels_nan = data
+        z_hat,cov_z,mu_z,kd_hat,bbp_hat,rrs_hat = model(inputs)
+        Y_masked, pred_masked = mask_nans(labels_nan,kd_hat,bbp_hat,z_hat,my_device = my_device)
+        # Compute the loss and its gradients
 
-    for i, data in enumerate(training_dataloader):
+        return loss_fn(pred_masked,Y_masked,inputs[:,0,:5],rrs_hat,labels_nan[:,0,:],cov_z,mu_z)
+
+    def one_loop(data):
         # Every data instance is an input + label pair
-        inputs, labels_nan = data
-        
         optimizer.zero_grad()
-
-        # Make predictions for this batch
-        loss = 0.
-        for j in range(num_samples):
-            z_hat,cov_z,mu_z,kd_hat,bbp_hat,rrs_hat = model(inputs)
-            Y_masked, pred_masked = mask_nans(labels_nan,kd_hat,bbp_hat,z_hat)
-            # Compute the loss and its gradients
-
-            loss += loss_fn(pred_masked,Y_masked,inputs[:,0,:5],rrs_hat,labels_nan[:,0,:],cov_z,mu_z)
+        loss = sum(map(one_sample,[data]*num_samples))
         loss /= num_samples
         loss.backward()
-
         # Adjust learning weights
         optimizer.step()
-
         # Gather data and report
-        running_loss += loss
-    running_loss /= (i+1)
-    return running_loss.item()
-
-def validation_loop(epoch_index,validation_dataloader,loss_fn,optimizer,model):
-
+        return loss.item()
     
+    list_data = list(iter(training_dataloader))
+    return np.mean(list(map(one_loop,list_data)))
+
+def validation_loop(epoch_index,validation_dataloader,loss_fn,optimizer,model,my_device = 'cpu'):   
     running_vloss = 0.
+    def one_loop(data):
+        vinputs, vlabels_nan = vdata
+        z_hat,cov_z,mu_z,kd_hat,bbp_hat,rrs_hat = model(vinputs)
+        Y_masked, pred_masked = mask_nans(vlabels_nan,kd_hat,bbp_hat,z_hat,my_device = my_device)
+
+        # Compute the loss and its gradients
+
+        vloss = loss_fn(pred_masked,Y_masked,vinputs[:,0,:5],rrs_hat,vlabels_nan[:,0,:],cov_z,mu_z)
+        return vloss.item()
     with torch.no_grad():
-        for i, vdata in enumerate(validation_dataloader):
-            vinputs, vlabels_nan = vdata
-            z_hat,cov_z,mu_z,kd_hat,bbp_hat,rrs_hat = model(vinputs)
-            Y_masked, pred_masked = mask_nans(vlabels_nan,kd_hat,bbp_hat,z_hat)
-
-            # Compute the loss and its gradients
-
-            vloss = loss_fn(pred_masked,Y_masked,vinputs[:,0,:5],rrs_hat,vlabels_nan[:,0,:],cov_z,mu_z)
-            running_vloss += vloss
-
-        running_vloss /= (i + 1)
+        list_data = list(iter(validation_dataloader))
+        running_vloss = np.mean(list(map(one_loop,list_data)))
         
-    return running_vloss.item()
+    return running_vloss
 
 def train_cifar(config,data_dir = None):
     time_init = time.time()
@@ -284,6 +281,7 @@ def train_cifar(config,data_dir = None):
     lr = config['lr']
     betas1 = config['betas1'] 
     betas2 = config['betas2']
+    dk_alpha = config['dk_alpha']
 
     
     mean_validation_loss = 0.
@@ -299,10 +297,11 @@ def train_cifar(config,data_dir = None):
                                  dim_hiden_layers_mean = dim_hiden_layers_mean,alpha_mean=alpha_mean,dim_last_hiden_layer_mean = dim_last_hiden_layer_mean,\
                                dim_last_hiden_layer_cov=dim_last_hiden_layer_cov,number_hiden_layers_cov = number_hiden_layers_cov,\
                                  dim_hiden_layers_cov = dim_hiden_layers_cov,alpha_cov=alpha_cov,x_mul=train_data.x_mul,x_add=train_data.x_add,\
-                                 y_mul=train_data.y_mul,y_add=train_data.y_add,constant = constant,model_dir = '/Users/carlos/Documents/OGS_one_d_model/VAE_model').to(my_device)
+                                 y_mul=train_data.y_mul,y_add=train_data.y_add,constant = constant,model_dir = '/Users/carlos/Documents/OGS_one_d_model/VAE_model',my_device = my_device)
+        
+        list(iter(model.parameters()))[-1].requires_grad = False
 
-
-        loss_function = composed_loss_function(rrs_mul=train_data.x_mul[:5],chla_mul= train_data.y_mul[0],kd_mul= train_data.y_mul[1:6],bbp_mul=train_data.y_mul[6:])
+        loss_function = composed_loss_function(rrs_mul=train_data.x_mul[:5],chla_mul= train_data.y_mul[0],kd_mul= train_data.y_mul[1:6],bbp_mul=train_data.y_mul[6:],dk_alpha=dk_alpha,my_device = my_device)
         optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=(betas1,betas2),maximize=False)
 
         checkpoint = get_checkpoint()
@@ -320,8 +319,8 @@ def train_cifar(config,data_dir = None):
         validation_loss = []
         train_loss = []
         for epoch in range(start_epoch,50):
-            train_loss.append(train_one_epoch(epoch,training_dataloader,loss_function,optimizer,model))
-            validation_loss.append(validation_loop(epoch,validation_dataloader,loss_function,optimizer,model))
+            train_loss.append(train_one_epoch(epoch,training_dataloader,loss_function,optimizer,model,my_device = my_device))
+            validation_loss.append(validation_loop(epoch,validation_dataloader,loss_function,optimizer,model,my_device = my_device))
             
             
         mean_validation_loss += validation_loss[-1]
@@ -351,21 +350,23 @@ def explore_hyperparameters():
     torch.manual_seed(0)
     
     config_space = CS.ConfigurationSpace({
-        "batch_size":[14],
+        "batch_size":[10,14,20],
         
-        "number_hiden_layers_mean":list(np.arange(1,3)),
-        "dim_hiden_layers_mean":list(np.arange(10,15)),
-        "dim_last_hiden_layer_mean":list(np.arange(10,15)) ,
-        "alpha_mean":CS.Float("alpha_mean",bounds=(0.5, 3),distribution=CS.Normal(1.2, 0.2)),
+        "number_hiden_layers_mean":list(np.arange(1,4)),
+        "dim_hiden_layers_mean":list(np.arange(14,20)),
+        "dim_last_hiden_layer_mean":list(np.arange(14,20)) ,
+        "alpha_mean":CS.Float("alpha_mean",bounds=(0.5, 3),distribution=CS.Normal(1.5204882322691, 0.2)),
 
-        "number_hiden_layers_cov":list(np.arange(1,3)),
+        "number_hiden_layers_cov":list(np.arange(1,4)),
         "dim_hiden_layers_cov":list(np.arange(11,15)),
         "dim_last_hiden_layer_cov":list(np.arange(10,15)) ,
-        "alpha_cov":CS.Float("alpha_cov",bounds=(0.5, 3),distribution=CS.Normal(0.81, 0.2)),
+        "alpha_cov":CS.Float("alpha_cov",bounds=(0.5, 3),distribution=CS.Normal(0.8119743562784, 0.1)),
         
-        "betas1":CS.Float("betas1",bounds=(0.5, 0.99),distribution=CS.Normal(0.7, 0.2)),
-        "betas2":CS.Float("betas2",bounds=(0.5, 0.99),distribution=CS.Normal(0.81, 0.2)),
-        "lr":CS.Float("lr",bounds=(0.0001, 0.01),distribution=CS.Normal(0.0029, 0.01),log=True),
+        "betas1":CS.Float("betas1",bounds=(0.5, 0.99),distribution=CS.Normal(0.7259411990309 , 0.1)),
+        "betas2":CS.Float("betas2",bounds=(0.5, 0.99),distribution=CS.Normal(0.5145689601656, 0.2)),
+        "lr":CS.Float("lr",bounds=(0.0001, 0.01),distribution=CS.Normal(0.0014725094966, 0.01),log=True),
+
+        "dk_alpha":CS.Float("dk_alpha",bounds=(0,1),distribution = CS.Normal(0.001,0.01))
         })
 
 
@@ -428,6 +429,7 @@ def save_cvae_first_part():
     lr = best_result.config['lr']
     betas1 = best_result.config['betas1'] 
     betas2 = best_result.config['betas2']
+    dk_alpha = best_result.config['dk_alpha']
 
     my_device = 'cpu'
 
@@ -439,28 +441,33 @@ def save_cvae_first_part():
                                  dim_hiden_layers_mean = dim_hiden_layers_mean,alpha_mean=alpha_mean,dim_last_hiden_layer_mean = dim_last_hiden_layer_mean,\
                                dim_last_hiden_layer_cov=dim_last_hiden_layer_cov,number_hiden_layers_cov = number_hiden_layers_cov,\
                                  dim_hiden_layers_cov = dim_hiden_layers_cov,alpha_cov=alpha_cov,x_mul=train_data.x_mul,x_add=train_data.x_add,\
-                                 y_mul=train_data.y_mul,y_add=train_data.y_add,constant = constant,model_dir = '/Users/carlos/Documents/OGS_one_d_model/VAE_model').to(my_device)
+                                 y_mul=train_data.y_mul,y_add=train_data.y_add,constant = constant,model_dir = '/Users/carlos/Documents/OGS_one_d_model/VAE_model',my_device = my_device).to(my_device)
 
     
-    loss_function = composed_loss_function(rrs_mul=train_data.x_mul[:5],chla_mul= train_data.y_mul[0],kd_mul= train_data.y_mul[1:6],bbp_mul=train_data.y_mul[6:])
+    loss_function = composed_loss_function(rrs_mul=train_data.x_mul[:5],chla_mul= train_data.y_mul[0],kd_mul= train_data.y_mul[1:6],bbp_mul=train_data.y_mul[6:],dk_alpha=dk_alpha,my_device = my_device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=(betas1,betas2),maximize=False)
     
     
     validation_loss = []
     train_loss = []
 
-    perturbation_factors_history = np.empty((1000,14))
-    perturbation_factors_history[0] = list(iter(model.parameters()))[-1].clone().detach().numpy()
+    perturbation_factors_history = np.empty((1500,14))
+    perturbation_factors_history[0] = list(iter(model.parameters()))[-1].clone().detach().cpu()
     list(iter(model.parameters()))[-1].requires_grad = False
 
-    for epoch in range(1500):
-
-        train_loss.append(train_one_epoch(epoch,train_dataloader,loss_function,optimizer,model,dates = train_data.dates,num_samples=5))
-        print('epoch',epoch,'done')
+    def one_epoch(epoch):
+        init_time = time.time()
+        train_loss.append(train_one_epoch(epoch,train_dataloader,loss_function,optimizer,model,dates = train_data.dates,num_samples=5,my_device = my_device))
+        if epoch % 10 == 0:
+            print('epoch',epoch,'done in',time.time() - init_time,'seconds','loss:',train_loss[-1])
         if epoch == 499:
             list(iter(model.parameters()))[-1].requires_grad = True
         if epoch >= 500:
-            perturbation_factors_history[epoch-500] = list(iter(model.parameters()))[-1].clone().detach().numpy()
+            perturbation_factors_history[epoch-500] = list(iter(model.parameters()))[-1].clone().detach().cpu().numpy()
+        if epoch % 100 == 0:
+            torch.save(model.state_dict(), data_dir+'/../VAE_model/model_second_part_save_epoch_'+str(epoch)+'.pt')
+    list(map(one_epoch,range(2000)))
+        
         
     torch.save(model.state_dict(), data_dir+'/../VAE_model/model_second_part.pt')
     np.save(data_dir+'/../plot_data/perturbation_factors/perturbation_factors_history_CVAE_two',perturbation_factors_history)
@@ -511,8 +518,12 @@ def save_var_uncertainties(Forward_Model, X, chla_hat_mean, covariance_matrix,rr
     np.save(save_path + '/dates.npy',dates)
     
 if __name__ == '__main__':
+
     #explore_hyperparameters()
-    #save_cvae_first_part()
+
+    save_cvae_first_part()
+
+    
     
     experiment_path = '/Users/carlos/ray_results/bohb_minimization_part2'
     data_dir = '/Users/carlos/Documents/OGS_one_d_model/npy_data'
@@ -522,18 +533,35 @@ if __name__ == '__main__':
 
     best_result = result_grid.get_best_result("loss_validation","min")
  
-    batch_size = 14
-    number_hiden_layers_mean = 2
-    dim_hiden_layers_mean = 14
-    dim_last_hiden_layer_mean = 14
-    alpha_mean = 1.5204882322691
+    batch_size = int(best_result.config['batch_size'])
+    number_hiden_layers_mean = best_result.config['number_hiden_layers_mean']
+    dim_hiden_layers_mean = best_result.config['dim_hiden_layers_mean']
+    dim_last_hiden_layer_mean = best_result.config['dim_last_hiden_layer_mean']
+    alpha_mean = best_result.config['alpha_mean']
+    number_hiden_layers_cov = best_result.config['number_hiden_layers_cov']
+    dim_hiden_layers_cov = best_result.config['dim_hiden_layers_cov']
+    dim_last_hiden_layer_cov = best_result.config['dim_last_hiden_layer_cov']
+    alpha_cov = best_result.config['alpha_cov']
+    lr = best_result.config['lr']
+    betas1 = best_result.config['betas1'] 
+    betas2 = best_result.config['betas2']
+    dk_alpha = best_result.config['dk_alpha']
+
+    print(best_result.config)
+ 
+    batch_size = 20
+    number_hiden_layers_mean = 3
+    dim_hiden_layers_mean = 18
+    dim_last_hiden_layer_mean = 17
+    alpha_mean = 1.3996294280783
     number_hiden_layers_cov = 2
-    dim_hiden_layers_cov = 13
-    dim_last_hiden_layer_cov =11
-    alpha_cov = 0.8119743562784
-    lr = 0.0014725094966
-    betas1 = 0.7259411990309 
-    betas2 = 0.5145689601656
+    dim_hiden_layers_cov = 14
+    dim_last_hiden_layer_cov =12
+    alpha_cov = 0.7429518278001
+    lr = 0.0083660712025
+    betas1 = 0.6952126048336 
+    betas2 = 0.7070708257291
+    dk_alpha = 0.0030880662181
 
 
     my_device = 'cpu'
@@ -555,6 +583,9 @@ if __name__ == '__main__':
     X,Y = next(iter(dataloader))
     
     z_hat,cov_z,mu_z,kd_hat,bbp_hat,rrs_hat = model(X)
+
+    plt.plot(z_hat[:,0].clone().detach())
+    plt.show()
 
     mu_z = mu_z* data.y_mul[0] + data.y_add[0]
     cov_z = torch.diag(data.y_mul[0].expand(3)).T @ cov_z @ torch.diag(data.y_mul[0].expand(3)) 

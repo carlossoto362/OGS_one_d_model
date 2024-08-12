@@ -646,3 +646,35 @@ class evaluate_model_class():
                                  self.X[:,self.axis,3],self.X[:,self.axis,4],torch.exp(self.chla[:,:,0]),torch.exp(self.chla[:,:,1]),torch.exp(self.chla[:,:,2]),parameters_eval,axis=self.axis,constant = self.constant)
 
             return bbp_values
+
+
+class RRS_loss(nn.Module):
+
+    def __init__(self,x_a,s_a,s_e,precision = torch.float32,num_days=1,my_device = 'cpu'):
+        super(RRS_loss, self).__init__()
+        self.x_a = torch.stack([x_a for _ in range(num_days)]).to(my_device)
+        self.s_a = s_a.to(my_device)
+        self.s_e = s_e.to(my_device)
+        self.s_e_inverse = torch.inverse(self.s_e)
+        self.s_a_inverse = torch.inverse(self.s_a)
+        self.precision = precision
+
+
+    def forward(self,y,f_x,x,test = False):
+        if test == True:
+            print( torch.trace(  (y - f_x) @ ( self.s_e_inverse @ (y - f_x ).T )),torch.trace( (x[:,0,:] - self.x_a) @( self.s_a_inverse @ (x[:,0,:] - self.x_a).T )))
+        return  torch.trace(   (y - f_x) @ ( self.s_e_inverse @ (y - f_x ).T ) +  (x[:,0,:] - self.x_a) @( self.s_a_inverse @ (x[:,0,:] - self.x_a).T )  ).to(self.precision)
+
+class OBS_loss(nn.Module):
+
+    def __init__(self,precision = torch.float32,my_device = 'cpu'):
+        super(OBS_loss, self).__init__()
+        self.precision = precision
+
+
+    def forward(self,Y_l,pred_l,nan_array):
+        custom_array = ((Y_l-pred_l))**2
+        lens = torch.tensor([len(element[~element.isnan()]) for element in nan_array])
+
+        means_output = custom_array.sum(axis=1)/lens
+        return means_output.mean().to(self.precision)
