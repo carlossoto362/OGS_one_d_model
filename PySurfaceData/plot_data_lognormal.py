@@ -739,7 +739,8 @@ test_indexes,train_indexes = customTensorData(data_path='npy_data',which='train'
     customTensorData(data_path='npy_data',which='train',per_day = False,randomice=True,one_dimensional = True,seed = 1853).train_indexes
 
 
-plot_scaterplot(test_indexes,vae_path = MODEL_HOME + '/VAE_model/results_VAE_VAEparam')
+plot_scaterplot(test_indexes,vae_path = MODEL_HOME + '/results_bayes_lognormal_mcmcParam')
+print(asfdadf)
 plot_constants_1(vae_name = 'perturbation_factors_history_CVAE_two.npy')
 plot_constants_2(vae_name = 'perturbation_factors_history_CVAE_two.npy')
 print(asdfasdf)
@@ -859,3 +860,5 @@ for function_ in [p_rmse,p_correlation]:
     print('\n\n\n')
 
 
+
+    

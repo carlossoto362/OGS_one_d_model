@@ -1397,6 +1397,8 @@ if __name__ == '__main__':
     #constant = read_constants(file1='./cte_lambda.csv',file2='./cst.csv')
     data = customTensorData(data_path=data_path,which='all',per_day = True,randomice=False)
     perturbation_factors = torch.tensor(np.load(perturbation_path + '/perturbation_factors_history_CVAE_two.npy')[-2]).to(torch.float32)
+    perturbation_factors = torch.tensor(np.load(perturbation_path + '/perturbation_factors_mean_mcmc.npy')).to(torch.float32)
+
     #perturbation_factors = torch.ones(14)
     #print(perturbation_factors)
     
@@ -1420,7 +1422,7 @@ if __name__ == '__main__':
     output = train_loop(next(iter(dataloader)),model,loss,optimizer,4000,kind='all',\
                         num_days=batch_size,constant = constant,perturbation_factors_ = perturbation_factors, scheduler = True)
     
-    output_path = '/Users/carlos/Documents/OGS_one_d_model/results_bayes_lognormal_VAEparam'
+    output_path = '/Users/carlos/Documents/OGS_one_d_model/results_bayes_lognormal_mcmcParam'
     np.save(output_path + '/X_hat.npy',output['X_hat'])
     np.save(output_path + '/kd_hat.npy',output['kd_hat'])
     np.save(output_path + '/bbp_hat.npy',output['bbp_hat'])

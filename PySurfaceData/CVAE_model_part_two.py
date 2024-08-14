@@ -114,6 +114,8 @@ class NN_second_layer(nn.Module):
         self.y_add = torch.tensor(y_add).to(self.precision).to(self.my_device)
 
         self.Forward_Model = fm.Forward_Model(learning_chla = False, learning_perturbation_factors = True)
+        self.bbp = fm.bbp
+        self.kd = fm.kd
         self.constant = constant
 
     def rearange_RRS(self,x):
@@ -148,14 +150,15 @@ class NN_second_layer(nn.Module):
         
         
         rrs_ = self.Forward_Model(image,parameters = z_hat,constant = self.constant)
+        
 
         rrs_ = (rrs_ - self.x_add[:5])/self.x_mul[:5]
  
-        kd_ = fm.kd(9.,image[:,:,0],image[:,:,1],image[:,:,2],image[:,:,3],image[:,:,4],torch.exp(z_hat[:,:,0]),torch.exp(z_hat[:,:,1]),torch.exp(z_hat[:,:,2]),self.Forward_Model.perturbation_factors,constant = self.constant)
+        kd_ = self.kd(9.,image[:,:,0],image[:,:,1],image[:,:,2],image[:,:,3],image[:,:,4],torch.exp(z_hat[:,:,0]),torch.exp(z_hat[:,:,1]),torch.exp(z_hat[:,:,2]),self.Forward_Model.perturbation_factors,constant = self.constant)
 
         kd_ = (kd_  - self.y_add[1:6])/self.y_mul[1:6]
 
-        bbp_ = fm.bbp(image[:,:,0],image[:,:,1],image[:,:,2],image[:,:,3],image[:,:,4],torch.exp(z_hat[:,:,0]),torch.exp(z_hat[:,:,1]),torch.exp(z_hat[:,:,2]),self.Forward_Model.perturbation_factors,constant = self.constant)[:,[1,2,4]]
+        bbp_ = self.bbp(image[:,:,0],image[:,:,1],image[:,:,2],image[:,:,3],image[:,:,4],torch.exp(z_hat[:,:,0]),torch.exp(z_hat[:,:,1]),torch.exp(z_hat[:,:,2]),self.Forward_Model.perturbation_factors,constant = self.constant)[:,[1,2,4]]
 
         bbp_ = (bbp_ - self.y_add[6:9])/self.y_mul[6:9]
 
@@ -172,7 +175,7 @@ class composed_loss_function(nn.Module):
         self.s_e = torch.diag(torch.tensor([1.5e-3,1.2e-3,1e-3,8.6e-4,5.7e-4])**(2)).to(my_device)
         self.my_device = my_device
         
-        s_a = (torch.eye(3)*4.6) #s_a is different to avoid big values of chla
+        s_a = (torch.eye(3)*4.9) #s_a is different to avoid big values of chla
 
         self.s_a = (chla_mul**(-2) * s_a).to(my_device)
 
@@ -191,19 +194,23 @@ class composed_loss_function(nn.Module):
         Y_cov[6:] = bbp_mul
 
 
-        Y_cov = torch.diag(Y_cov**(-1)).T @ (torch.eye(9) @ torch.diag(Y_cov**(-1))) #originally, the cov_inv was multiply by /len(data)
+        Y_cov = torch.diag(Y_cov**(-1)).T @ (torch.eye(9) @ torch.diag(Y_cov**(-1)))
         self.Y_cov_inv = Y_cov.inverse().to(torch.float32).to(my_device)
 
 
-    def forward(self,pred_,Y_obs,rrs,rrs_pred,nan_array,cov_z=None,mu_z=None):
+    def forward(self,pred_,Y_obs,rrs,rrs_pred,nan_array,cov_z=None,mu_z=None,parameters=[1]):
 
         rrs_error = torch.trace(   (rrs - rrs_pred) @ ( self.rrs_cov_inv @ (rrs - rrs_pred ).T ) )/(5*pred_.shape[0])
         lens = torch.tensor([len(element[~element.isnan()])  for element in nan_array]).to(self.precision).to(self.my_device)
         obs_error = torch.trace(   ((pred_ - Y_obs) @ ( self.Y_cov_inv @ (pred_ - Y_obs ).T ))/lens )/pred_.shape[0]
         DK = 0.5* torch.sum(torch.log(torch.linalg.det(self.s_a)) - torch.log(torch.linalg.det(cov_z))  + torch.vmap(torch.trace)(self.s_a_inv @ cov_z)   )/pred_.shape[0]\
-            + 0.5* torch.sum(  (mu_z.unsqueeze(1) + 3.1880) @ self.s_a_inv @ torch.transpose((mu_z.unsqueeze(1) + 3.1880),dim0=1,dim1=2)) /(3*pred_.shape[0])
+            + 0.5* torch.sum(  (mu_z.unsqueeze(1) -0.6447) @ self.s_a_inv @ torch.transpose((mu_z.unsqueeze(1) -0.6447),dim0=1,dim1=2)) /(3*pred_.shape[0]) #(0 - nn_model.add)/nn_model.mul = 0.6447
+
+        l2_norm =  (( parameters - 1 )**2).mean()
+        error = rrs_error + 10*obs_error + DK + l2_norm
+
         
-        return (rrs_error + 10*obs_error + DK*self.dk_alpha).to(self.my_device)
+        return (error).to(self.my_device)
 
 
 
@@ -226,7 +233,7 @@ def train_one_epoch(epoch_index,training_dataloader,loss_fn,optimizer,model,date
         Y_masked, pred_masked = mask_nans(labels_nan,kd_hat,bbp_hat,z_hat,my_device = my_device)
         # Compute the loss and its gradients
 
-        return loss_fn(pred_masked,Y_masked,inputs[:,0,:5],rrs_hat,labels_nan[:,0,:],cov_z,mu_z)
+        return loss_fn(pred_masked,Y_masked,inputs[:,0,:5],rrs_hat,labels_nan[:,0,:],cov_z,mu_z,list(model.parameters())[-1])
 
     def one_loop(data):
         # Every data instance is an input + label pair
@@ -251,7 +258,7 @@ def validation_loop(epoch_index,validation_dataloader,loss_fn,optimizer,model,my
 
         # Compute the loss and its gradients
 
-        vloss = loss_fn(pred_masked,Y_masked,vinputs[:,0,:5],rrs_hat,vlabels_nan[:,0,:],cov_z,mu_z)
+        vloss = loss_fn(pred_masked,Y_masked,vinputs[:,0,:5],rrs_hat,vlabels_nan[:,0,:],cov_z,mu_z,list(model.parameters())[-1])
         return vloss.item()
     with torch.no_grad():
         list_data = list(iter(validation_dataloader))
@@ -451,22 +458,21 @@ def save_cvae_first_part():
     validation_loss = []
     train_loss = []
 
-    perturbation_factors_history = np.empty((1500,14))
+    perturbation_factors_history = np.empty((500,14))
     perturbation_factors_history[0] = list(iter(model.parameters()))[-1].clone().detach().cpu()
-    list(iter(model.parameters()))[-1].requires_grad = False
+
+
+    
+    #list(iter(model.parameters()))[-1].requires_grad = False
 
     def one_epoch(epoch):
         init_time = time.time()
         train_loss.append(train_one_epoch(epoch,train_dataloader,loss_function,optimizer,model,dates = train_data.dates,num_samples=5,my_device = my_device))
         if epoch % 10 == 0:
             print('epoch',epoch,'done in',time.time() - init_time,'seconds','loss:',train_loss[-1])
-        if epoch == 499:
-            list(iter(model.parameters()))[-1].requires_grad = True
-        if epoch >= 500:
-            perturbation_factors_history[epoch-500] = list(iter(model.parameters()))[-1].clone().detach().cpu().numpy()
-        if epoch % 100 == 0:
             torch.save(model.state_dict(), data_dir+'/../VAE_model/model_second_part_save_epoch_'+str(epoch)+'.pt')
-    list(map(one_epoch,range(2000)))
+            
+    list(map(one_epoch,range(500)))
         
         
     torch.save(model.state_dict(), data_dir+'/../VAE_model/model_second_part.pt')

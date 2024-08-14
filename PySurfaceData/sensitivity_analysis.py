@@ -17,6 +17,7 @@ from Forward_module import evaluate_model_class,Forward_Model,RRS_loss,OBS_loss
 from read_data_module import customTensorData ,read_constants
 from torch.utils.data import DataLoader
 from multiprocessing.pool import Pool
+import matplotlib.colors as mcolors
 
 
 MODEL_HOME = '/Users/carlos/Documents/OGS_one_d_model'
@@ -79,7 +80,7 @@ def sensitivity_boxplot(jacobian_rrs,jacobian_kd,jacobian_bbp,rrs_hat,kd_hat,bbp
     
 
         axs[0].axes.xaxis.set_ticklabels([])
-        axs[0].set_ylabel('$ (\\nabla_\delta RR_S)(RR_S \delta^{-1})^{-1} $',fontsize=15)
+        axs[0].set_ylabel('$ \partial( \log{ R_{RS} }) \partial (\log{\delta_i})^{-1} $',fontsize=15)
         axs[0].tick_params(axis='y', labelsize=15)
         axs[0].text(1-0.04,0.9,'(a)',transform = axs[0].transAxes,fontsize=15)
         axs[0].set_ylim(*lims)
@@ -87,7 +88,7 @@ def sensitivity_boxplot(jacobian_rrs,jacobian_kd,jacobian_bbp,rrs_hat,kd_hat,bbp
 
         
         axs[1].axes.xaxis.set_ticklabels([])
-        axs[1].set_ylabel('$ (\\nabla_\delta kd)(kd\delta^{-1})^{-1} $',fontsize=15)
+        axs[1].set_ylabel('$ \partial (\log{ kd }) \partial (\log{\delta_i})^{-1} $',fontsize=15)
         axs[1].tick_params(axis='y', labelsize=15)
         axs[1].text(1-0.04,0.9,'(b)',transform = axs[1].transAxes,fontsize=15)
         axs[1].set_ylim(*lims)
@@ -95,7 +96,7 @@ def sensitivity_boxplot(jacobian_rrs,jacobian_kd,jacobian_bbp,rrs_hat,kd_hat,bbp
 
     
         axs[2].tick_params(axis='x', labelsize=15)
-        axs[2].set_ylabel('$ (\\nabla_\delta b_{b,p})(b_{b,p} \delta^{-1})^{-1} $',fontsize=15)
+        axs[2].set_ylabel('$ \partial (\log{ b_{b,p} }) \partial (\log{\delta_i})^{-1} $',fontsize=15)
         axs[2].tick_params(axis='y', labelsize=15)
         axs[2].text(1-0.04,0.9,'(c)',transform = axs[2].transAxes,fontsize=15)
         axs[2].set_ylim(*lims)
@@ -391,8 +392,8 @@ if __name__ == '__main__':
 
     perturbation_factors = torch.ones(14)
     
-    #sensitivity_boxplot(jacobian_rrs,jacobian_kd,jacobian_bbp,rrs_hat,kd_hat,bbp_hat,perturbation_factors,X,\
-    #                        title='Sensitivity of the parameters with the literature values')
+    sensitivity_boxplot(jacobian_rrs,jacobian_kd,jacobian_bbp,rrs_hat,kd_hat,bbp_hat,perturbation_factors,X,\
+                            title='Sensitivity of the parameters with the literature values')
 
 
     ################MCMC#############
@@ -419,7 +420,8 @@ if __name__ == '__main__':
 
     mcmc_runs = mcmc_runs[:,2000:,:]
     mcmc_runs_mean, mcmc_runs_std = np.empty((14)),np.empty((14))
-    """
+
+    correlation_lenght_use = 0
     for which in range(14):
 
         correlation = np.empty((num_runs,500))
@@ -430,15 +432,38 @@ if __name__ == '__main__':
         for correlation_lenght in range(500):
             if correlation[correlation_lenght]<0.4:
                 break
+        if correlation_lenght > correlation_lenght_use:
+            correlation_lenght_use = correlation_lenght
     
-        data = mcmc_runs[:,::correlation_lenght,which].flatten()
-        data = data
-        
-        (mcmc_runs_mean[which], mcmc_runs_std[which]) = scipy.stats.norm.fit(data)
-        
-    np.save(MODEL_HOME + '/plot_data/perturbation_factors/perturbation_factors_mean_mcmc.npy',mcmc_runs_mean)
-    np.save(MODEL_HOME + '/plot_data/perturbation_factors/perturbation_factors_std_mcmc.npy',mcmc_runs_std)
-    """
+    data = mcmc_runs[:,::correlation_lenght,:]
+
+    mcmc_runs_ = np.empty((280,14))
+    
+    for i in range(14):
+        mcmc_runs_[:,i] = data[:,:,i].flatten()
+
+    mcmc_runs_dataframe = pd.DataFrame()
+    ticks = ['$\delta_{a_{PH}}$','$\delta_{b_{PH,T}}$','$\delta_{b_{PH,Int}}$','$\delta_{b_{b,PH,T}}$','$\delta_{b_{b,PH,Int}}$','$\delta_{d_{\\text{CDOM}}}$','$\delta_{S_{\\text{CDOM}}}$','$\delta_{q_1}$','$\delta_{q_2}$',\
+                  '$\delta_{\Theta^{\\text{min}}_{\\text{chla}}}$','$\delta_{\Theta^{\\text{0}}_{\\text{chla}}}$',\
+                  '$\delta_{\\beta}$','$\delta_{\sigma}$','$\delta_{b_{b,\\text{NAP}}}$']
+    for i,tick in enumerate(ticks):
+        mcmc_runs_dataframe[tick] = mcmc_runs_[:,i]
+    
+    correlation_matrix = mcmc_runs_dataframe.corr()
+    
+    fig,ax = plt.subplots(layout='constrained')
+    colors1 = plt.cm.Greys_r(np.linspace(0.,1, 128))
+    colors2 = plt.cm.Blues(np.linspace(0., 1, 128))
+    colors = np.vstack((colors1, colors2))
+    mymap = mcolors.LinearSegmentedColormap.from_list('my_colormap', colors)
+    
+    sb.heatmap(correlation_matrix, cmap=mymap, annot=True,vmin=-1,ax=ax)
+    ax.tick_params(axis='x', labelsize=15)
+    ax.tick_params(axis='y', labelsize=15)
+    plt.show()
+    plt.close()
+    
+
     mcmc_runs = mcmc_runs[:,:,5:] * constant_values
 
     mcmc_runs_mean = np.mean(mcmc_runs,axis=0)
