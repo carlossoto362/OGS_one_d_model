@@ -31,6 +31,7 @@ def absortion_NAP(lambda_,tensor = True,constant = None):
     else:
     	return constant['dNAP']*torch.exp(-constant['sNAP']*(torch.tensor(lambda_) - 440.))
 
+
 def absortion(lambda_,chla,CDOM,NAP,perturbation_factors,tensor=True,axis=None,constant = None):
     """
     Total absortion coeffitient.
@@ -105,6 +106,7 @@ def scattering_NAP(lambda_,tensor=True,constant = None):
     of some of the constants of the bio quimical model. The variable "tensor" specify if the input and output of the function is a torch.tensor. 
     """
     return constant['eNAP']*(550./lambda_)**constant['fNAP']
+    
 
 def scattering(lambda_,PAR,chla,NAP,perturbation_factors,tensor=True,axis=None,constant = None):
     """

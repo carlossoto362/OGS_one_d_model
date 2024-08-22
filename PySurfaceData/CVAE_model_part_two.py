@@ -38,6 +38,7 @@ import warnings
 import Forward_module as fm
 import read_data_module as rdm
 from CVAE_model_part_one import NN_first_layer
+from torch.linalg import inv 
 
 
 class NN_second_layer(nn.Module):
@@ -203,13 +204,19 @@ class composed_loss_function(nn.Module):
         rrs_error = torch.trace(   (rrs - rrs_pred) @ ( self.rrs_cov_inv @ (rrs - rrs_pred ).T ) )/(5*pred_.shape[0])
         lens = torch.tensor([len(element[~element.isnan()])  for element in nan_array]).to(self.precision).to(self.my_device)
         obs_error = torch.trace(   ((pred_ - Y_obs) @ ( self.Y_cov_inv @ (pred_ - Y_obs ).T ))/lens )/pred_.shape[0]
-        DK = 0.5* torch.sum(torch.log(torch.linalg.det(self.s_a)) - torch.log(torch.linalg.det(cov_z))  + torch.vmap(torch.trace)(self.s_a_inv @ cov_z)   )/pred_.shape[0]\
-            + 0.5* torch.sum(  (mu_z.unsqueeze(1) -0.6447) @ self.s_a_inv @ torch.transpose((mu_z.unsqueeze(1) -0.6447),dim0=1,dim1=2)) /(3*pred_.shape[0]) #(0 - nn_model.add)/nn_model.mul = 0.6447
 
-        l2_norm =  (( parameters - 1 )**2).mean()
-        error = rrs_error + 10*obs_error + DK + l2_norm
-
+        cov_z_inv = inv(cov_z)
+        DK = 0.5* torch.sum(torch.log(torch.linalg.det(cov_z)) - torch.log(torch.linalg.det(self.s_a))  + torch.vmap(torch.trace)(cov_z_inv @ self.s_a)   )/pred_.shape[0]\
+            + 0.5* torch.sum(  (mu_z.unsqueeze(1) -0.6447) @ cov_z_inv @ torch.transpose((mu_z.unsqueeze(1) -0.6447),dim0=1,dim1=2)) /(3*pred_.shape[0]) #(0 - nn_model.add)/nn_model.mul = 0.6447
         
+        l2_norm =  (( parameters - 1 )**2).mean()
+        error = rrs_error +  obs_error + DK*0.0001 + l2_norm
+
+
+        if torch.isnan(error):
+            print(rrs_error,obs_error,DK,mu_z,cov_z)
+            print(asdfasdf)
+            
         return (error).to(self.my_device)
 
 
@@ -458,24 +465,30 @@ def save_cvae_first_part():
     validation_loss = []
     train_loss = []
 
-    perturbation_factors_history = np.empty((500,14))
+    perturbation_factors_history = np.empty((501,14))
     perturbation_factors_history[0] = list(iter(model.parameters()))[-1].clone().detach().cpu()
-
+    
 
     
-    #list(iter(model.parameters()))[-1].requires_grad = False
+    list(iter(model.parameters()))[-1].requires_grad = True
 
     def one_epoch(epoch):
         init_time = time.time()
         train_loss.append(train_one_epoch(epoch,train_dataloader,loss_function,optimizer,model,dates = train_data.dates,num_samples=5,my_device = my_device))
+        
         if epoch % 10 == 0:
             print('epoch',epoch,'done in',time.time() - init_time,'seconds','loss:',train_loss[-1])
             torch.save(model.state_dict(), data_dir+'/../VAE_model/model_second_part_save_epoch_'+str(epoch)+'.pt')
+        #if epoch == 499:
+        #    list(iter(model.parameters()))[-1].requires_grad = True
+        #if epoch >= 500:
+        perturbation_factors_history[epoch+1] = list(iter(model.parameters()))[-1].clone().detach()
             
+        
     list(map(one_epoch,range(500)))
         
         
-    torch.save(model.state_dict(), data_dir+'/../VAE_model/model_second_part.pt')
+    torch.save(model.state_dict(), data_dir+'/../VAE_model/model_second_part_two.pt')
     np.save(data_dir+'/../plot_data/perturbation_factors/perturbation_factors_history_CVAE_two',perturbation_factors_history)
     print('perturbation_factors_history saved in',data_dir+'/../plot_data/perturbation_factors')
     
@@ -582,10 +595,8 @@ if __name__ == '__main__':
                            number_hiden_layers_cov = number_hiden_layers_cov,\
                            dim_hiden_layers_cov = dim_hiden_layers_cov,alpha_cov=alpha_cov,dim_last_hiden_layer_cov = dim_last_hiden_layer_cov,x_mul=data.x_mul,x_add=data.x_add,\
                            y_mul=data.y_mul,y_add=data.y_add,constant = constant,model_dir = '/Users/carlos/Documents/OGS_one_d_model/VAE_model').to(my_device)
-    
-    model.load_state_dict(torch.load(data_dir+'/../VAE_model/model_second_part.pt'))
-    #model.eval()
 
+    model.load_state_dict(torch.load(data_dir+'/../VAE_model/model_second_part_two.pt'))
     X,Y = next(iter(dataloader))
     
     z_hat,cov_z,mu_z,kd_hat,bbp_hat,rrs_hat = model(X)

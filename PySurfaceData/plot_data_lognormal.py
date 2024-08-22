@@ -467,7 +467,7 @@ def plot_scaterplot(test_indexes , vae_path = MODEL_HOME + '/results_VAE_VAEpara
 
     data['NAP'] = np.nan
     data['CDOM'] = np.nan
-    second_run = read_second_run(MODEL_HOME + '/results_bayes_lognormal_logparam',include_uncertainty=True,abr='log_output')
+    second_run = read_second_run(MODEL_HOME + '/results_bayes_lognormal_mcmcparam',include_uncertainty=True,abr='log_output')
     data = second_run.merge(data,how='right',on='date')
     second_run = read_second_run(MODEL_HOME + '/results_bayes_lognormal_VAEparam',include_uncertainty=True,abr='logNN_output')
     data = second_run.merge(data,how='right',on='date')
@@ -594,6 +594,7 @@ def plot_scaterplot(test_indexes , vae_path = MODEL_HOME + '/results_VAE_VAEpara
 def plot_constants_1(perturbation_path = MODEL_HOME + '/plot_data/perturbation_factors' ,vae_name = 'perturbation_factors_history_VAE.npy'):
     
     perturbation_factors_history_NN = torch.tensor(np.load(perturbation_path + '/' +  vae_name)).to(torch.float32)
+    
     perturbation_factors_history_lognormal = torch.tensor(np.load(perturbation_path + '/perturbation_factors_history_lognormal.npy')).to(torch.float32)
     constant = read_constants(file1='./cte_lambda.csv',file2='./cst.csv')
 
@@ -739,32 +740,33 @@ test_indexes,train_indexes = customTensorData(data_path='npy_data',which='train'
     customTensorData(data_path='npy_data',which='train',per_day = False,randomice=True,one_dimensional = True,seed = 1853).train_indexes
 
 
-plot_scaterplot(test_indexes,vae_path = MODEL_HOME + '/results_bayes_lognormal_mcmcParam')
-print(asfdadf)
-plot_constants_1(vae_name = 'perturbation_factors_history_CVAE_two.npy')
-plot_constants_2(vae_name = 'perturbation_factors_history_CVAE_two.npy')
-print(asdfasdf)
+plot_scaterplot(test_indexes,vae_path = MODEL_HOME + '/VAE_model/results_VAE_VAEparam')
+plot_constants_1(vae_name = 'perturbation_factors_history_CVAE_one.npy')
+plot_constants_2(vae_name = 'perturbation_factors_history_CVAE_one.npy')
+
+plot_chla(input_data_path = MODEL_HOME + '/results_bayes_lognormal_logparam',\
+                figname = MODEL_HOME + '/plot_data/chla_lognormal_data.pdf',save=False,date_init = datetime(year=2012,month=1,day=1),\
+                statistics=False, num_cols = 1,labels_names=['In situ data','Bayesian MAP output and Uncertainty'],ylim=[],figsize=(17,12),\
+          third_data_path = MODEL_HOME + '/VAE_model/results_VAE_VAEparam')
 
 plot_kd(input_data_path = MODEL_HOME + '/results_bayes_lognormal_logparam',\
-                figname = MODEL_HOME + '/plot_data/kd_lognormal_data.pdf',save=True,date_init = datetime(year=2012,month=1,day=1),\
+                figname = MODEL_HOME + '/plot_data/kd_lognormal_data.pdf',save=False,date_init = datetime(year=2012,month=1,day=1),\
                 statistics=False, num_cols = 1,labels_names=['In situ data','Bayesian MAP output and Uncertainty'],ylim=[0,0.31],figsize=(17,17),\
-        third_data_path = MODEL_HOME + '/results_VAE_VAEparam')
+        third_data_path = MODEL_HOME + '/VAE_model/results_VAE_VAEparam')
+
+
 
 plot_bbp(input_data_path = MODEL_HOME + '/results_bayes_lognormal_logparam',\
-                figname = MODEL_HOME + '/plot_data/bbp_lognormal_data.pdf',save=True,date_init = datetime(year=2012,month=1,day=1),\
+                figname = MODEL_HOME + '/plot_data/bbp_lognormal_data.pdf',save=False,date_init = datetime(year=2012,month=1,day=1),\
                 statistics=False, num_cols = 1,labels_names=['In situ data','Bayesian MAP output and Uncertainty'],ylim=[],figsize=(17,12),\
-         third_data_path = MODEL_HOME + '/results_VAE_VAEparam')
+         third_data_path = MODEL_HOME + '/VAE_model/results_VAE_VAEparam')
 
-plot_chla(input_data_path = MODEL_HOME + '/results_bayes_lognormal_logparam',\
-                figname = MODEL_HOME + '/plot_data/chla_lognormal_data.pdf',save=True,date_init = datetime(year=2012,month=1,day=1),\
-                statistics=False, num_cols = 1,labels_names=['In situ data','Bayesian MAP output and Uncertainty'],ylim=[],figsize=(17,12),\
-          third_data_path = MODEL_HOME + '/results_VAE_VAEparam')
 
 
 plot_chla(input_data_path = MODEL_HOME + '/results_bayes_lognormal_logparam',\
-                figname = MODEL_HOME + '/plot_data/chla_lognormal_data.pdf',save=True,date_init = datetime(year=2012,month=1,day=1),\
+                figname = MODEL_HOME + '/plot_data/chla_lognormal_data.pdf',save=False,date_init = datetime(year=2012,month=1,day=1),\
                 statistics=False, num_cols = 1,labels_names=['In situ data','Bayesian MAP output and Uncertainty'],ylim=[],figsize=(17,12),\
-          third_data_path = MODEL_HOME + '/results_VAE_VAEparam')
+          third_data_path = MODEL_HOME + '/VAE_model/results_VAE_VAEparam')
 
 
 #plot_with_u(input_data_path = '/Users/carlos/Documents/surface_data_analisis/LastVersion/results_bayes_lognormal_logparam',\
@@ -772,7 +774,7 @@ plot_chla(input_data_path = MODEL_HOME + '/results_bayes_lognormal_logparam',\
 #                statistics=False, num_cols = 2,labels_names=['In situ data','Bayesian MAP output and Uncertainty'])
 
 
-data = data_dataframe('/Users/carlos/Documents/surface_data_analisis/LastVersion/npy_data')
+data = data_dataframe(MODEL_HOME + '/npy_data')
 
 data['NAP'] = np.nan
 data['CDOM'] = np.nan
@@ -784,7 +786,7 @@ second_run = read_second_run(MODEL_HOME + '/results_bayes_lognormal_unperturbed'
 data = second_run.merge(data,how='right',on='date')
 second_run = read_second_run(MODEL_HOME + '/results_NN_NNparam',include_uncertainty=False,abr='NN_output')
 data = second_run.merge(data,how='right',on='date')
-second_run = read_second_run(MODEL_HOME + '/results_VAE_VAEparam',include_uncertainty=True,abr='VAE_output')
+second_run = read_second_run(MODEL_HOME + '/VAE_model/results_VAE_VAEparam',include_uncertainty=True,abr='VAE_output')
 data = second_run.merge(data,how='right',on='date')
 data.sort_values(by='date',inplace=True)
 del second_run

@@ -54,9 +54,9 @@ def sensitivity_boxplot(jacobian_rrs,jacobian_kd,jacobian_bbp,rrs_hat,kd_hat,bbp
         jacobian_bbp = np.mean(jacobian_bbp/normalization,axis=1)
 
 
-        xticks = ['$\delta_{a_{PH}}$','$\delta_{b_{PH,T}}$','$\delta_{b_{PH,Int}}$','$\delta_{b_{b,PH,T}}$','$\delta_{b_{b,PH,Int}}$','$\delta_{d_{\\text{CDOM}}}$','$\delta_{S_{\\text{CDOM}}}$','$\delta_{q_1}$','$\delta_{q_2}$',\
-                  '$\delta_{\Theta^{\\text{min}}_{\\text{chla}}}$','$\delta_{\Theta^{\\text{0}}_{\\text{chla}}}$',\
-                  '$\delta_{\\beta}$','$\delta_{\sigma}$','$\delta_{b_{b,\\text{NAP}}}$']
+        xticks = ['${a_{PH}}$','$\delta_{b_{PH,T}}$','${b_{PH,Int}}$','${b_{b,PH,T}}$','${b_{b,PH,Int}}$','${d_{\\text{CDOM}}}$','${S_{\\text{CDOM}}}$','${q_1}$','${q_2}$',\
+                  '${\Theta^{\\text{min}}_{\\text{chla}}}$','${\Theta^{\\text{0}}_{\\text{chla}}}$',\
+                  '${\\beta}$','${\sigma}$','${b_{b,\\text{NAP}}}$']
     
         jacobian_rrs_dataframe = pd.DataFrame()
         for i in range(14):
@@ -73,9 +73,9 @@ def sensitivity_boxplot(jacobian_rrs,jacobian_kd,jacobian_bbp,rrs_hat,kd_hat,bbp
 
         fig, axs = plt.subplots(ncols=1, nrows=3, figsize=(15*0.7, 9*0.65),
                                 layout="constrained")
-        sb.boxplot(data=jacobian_rrs_dataframe,ax=axs[0],whis=(10, 90),color=".6",fliersize=1)
-        sb.boxplot(data=jacobian_kd_dataframe,ax=axs[1],whis=(10, 90),color=".6",fliersize=1)
-        sb.boxplot(data=jacobian_bbp_dataframe,ax=axs[2],whis=(10, 90),color=".6",fliersize=1)
+        sb.boxplot(data=jacobian_rrs_dataframe,ax=axs[0],whis=(10, 90),color='#377eb8',fliersize=1,widths=0.3)
+        sb.boxplot(data=jacobian_kd_dataframe,ax=axs[1],whis=(10, 90),color='#377eb8',fliersize=1,widths=0.3)
+        sb.boxplot(data=jacobian_bbp_dataframe,ax=axs[2],whis=(10, 90),color='#377eb8',fliersize=1,widths=0.3)
     
     
 
@@ -93,7 +93,6 @@ def sensitivity_boxplot(jacobian_rrs,jacobian_kd,jacobian_bbp,rrs_hat,kd_hat,bbp
         axs[1].text(1-0.04,0.9,'(b)',transform = axs[1].transAxes,fontsize=15)
         axs[1].set_ylim(*lims)
         axs[1].set_yscale('symlog')
-
     
         axs[2].tick_params(axis='x', labelsize=15)
         axs[2].set_ylabel('$ \partial (\log{ b_{b,p} }) \partial (\log{\delta_i})^{-1} $',fontsize=15)
@@ -101,10 +100,7 @@ def sensitivity_boxplot(jacobian_rrs,jacobian_kd,jacobian_bbp,rrs_hat,kd_hat,bbp
         axs[2].text(1-0.04,0.9,'(c)',transform = axs[2].transAxes,fontsize=15)
         axs[2].set_ylim(*lims)
         axs[2].set_yscale('symlog')
-
-
-
-        axs[0].set_title(title,fontsize=20)
+        axs[2].text(-0.05,-0.15,'$\delta_i,i= $',transform = axs[2].transAxes,fontsize=15)
         
         plt.show()
 
@@ -333,6 +329,59 @@ def plot_constants_2(perturbation_path = MODEL_HOME + '/plot_data/perturbation_f
 
     plt.show()
 
+def correlation_matrix(num_runs,mcmc_runs,plot=True,table=False):
+    correlation_lenght_use = 0
+    for which in range(14):
+
+        correlation = np.empty((num_runs,500))
+        for i in range(num_runs):
+            correlation[i] = autocorr(mcmc_runs[i,:,which],range(500))
+        correlation = np.mean(correlation,axis=0)
+
+        for correlation_lenght in range(500):
+            if correlation[correlation_lenght]<0.4:
+                break
+        if correlation_lenght > correlation_lenght_use:
+            correlation_lenght_use = correlation_lenght
+    
+    data = mcmc_runs[:,::correlation_lenght,:]
+
+    mcmc_runs_ = np.empty((280,14))
+    
+    for i in range(14):
+        mcmc_runs_[:,i] = data[:,:,i].flatten()
+
+    mcmc_runs_dataframe = pd.DataFrame()
+    ticks = ['${a_{PH}}$','${b_{PH,T}}$','${b_{PH,\\text{Int}}}$','${b_{b,PH,T}}$','${b_{b,PH,\\text{Int}}}$','${d_{\\text{CDOM}}}$','${S_{\\text{CDOM}}}$','${q_1}$','${q_2}$',\
+                  '${\Theta^{\\text{min}}_{\\text{chla}}}$','${\Theta^{\\text{0}}_{\\text{chla}}}$',\
+                  '${\\beta}$','${\sigma}$','${b_{b,\\text{NAP}}}$']
+    for i,tick in enumerate(ticks):
+        mcmc_runs_dataframe[tick] = mcmc_runs_[:,i]
+    
+    correlation_matrix = mcmc_runs_dataframe.corr()
+    print(correlation_matrix)
+
+    if plot == True:
+    
+        fig,ax = plt.subplots(layout='constrained')
+        colors1 = plt.cm.Greys_r(np.linspace(0.,1, 128))
+        colors2 = plt.cm.Blues(np.linspace(0., 1, 128))
+        colors = np.vstack((colors1, colors2))
+        mymap = mcolors.LinearSegmentedColormap.from_list('my_colormap', colors)
+    
+        sb.heatmap(correlation_matrix, cmap=mymap, annot=True,vmin=-1,ax=ax)
+        ax.tick_params(axis='x', labelsize=15)
+        ax.tick_params(axis='y', labelsize=15)
+        plt.show()
+        plt.close()
+    if table == True:
+
+        print("$\\delta_i,i=$ & "+" & ".join(ticks) + "\\\\\\hline")
+        for i in range(14):
+            print(ticks[i] + " & " + " & ".join(["{:.2f}".format(correlation_matrix[ticks[i]][ticks[j]]) for j in range(i+1)]) + "".join(["&"]*(13-i)) +  "\\\\")
+        
+    
+
     
 def autocorr(x,lags):
         '''numpy.corrcoef, partial'''
@@ -340,6 +389,66 @@ def autocorr(x,lags):
         corr=[1. if l==0 else np.corrcoef(x[l:],x[:-l])[0][1] for l in lags]
         corr = [1. if np.isnan(c) else c for c in corr ]
         return np.array(corr)
+
+def parameters_statistics(num_runs,mcmc_runs,names,correlation_lenght=280,plot=True,table=False):
+
+    if plot==True:
+        fig,axs = plt.subplots(ncols=3,nrows=3,layout='constrained')
+        for which,ax in enumerate(axs.flatten()):
+
+            data = mcmc_runs[:,::correlation_lenght,which].flatten()
+    
+            (mu, sigma) = scipy.stats.norm.fit(data)
+            n, bins, patches = ax.hist(data,bins=40,density=True,edgecolor='black',color='#377eb8',alpha=0.6)
+
+            ks = scipy.stats.kstest((data - data.mean())/data.std(),scipy.stats.norm.cdf)
+
+
+            
+            ax.plot(bins, scipy.stats.norm.pdf(bins,loc=mu,scale=sigma), linewidth=2,color='black',label='mean value: {:.4f}\nstd value: {:.4f}\nKS statistic: {:.4f}\np-value: {:.4f}'.format(mu,sigma,ks.statistic,ks.pvalue))
+
+        
+            ax.axvline(x=constant_values[which],label= 'original values: {:.4f}'.format(constant_values[which]),color='gray',linestyle='--')
+            ax.axvline( x = constant_values[which]*perturbation_factors[5+which],linestyle='dashdot',label='AM result: {:.4f}'.format(constant_values[which]*perturbation_factors[5+which]),color='blue')
+            ax.axvline( x = constant_values[which]*perturbation_factors_NN[5+which],linestyle='dashdot',label='CVAE result: {:.4f}'.format(constant_values[which]*perturbation_factors_NN[5+which]),color='#f781bf')
+            ax.set_xlabel(names[which],fontsize='15')
+            ax.text(-0.1,1.05,fig_labels[which],transform = ax.transAxes,fontsize='20')
+
+            y_lims = ax.get_ylim()
+            x_lims = ax.get_xlim()
+            ax.fill_between(np.linspace(mu-sigma,mu+sigma,20), [y_lims[0]]*20, [y_lims[1]]*20,color='gray',zorder = 0.1,alpha=0.8,label='63% confidence interval')
+            ax.set_ylim(y_lims)
+            ax.tick_params(axis='y', labelsize=15)
+            ax.tick_params(axis='x', labelsize=15)
+            ax.set_xlim((x_lims[0] - (x_lims[1] - x_lims[0] )*0.3,x_lims[1]))
+            ax.legend(fontsize="10")
+        plt.show()
+    if table == True:
+        mu = np.empty(9)
+        sigma = np.empty(9)
+        ks_value = np.empty(9)
+        ks_pvalue = np.empty(9)
+
+        for which in range(9):
+            data = mcmc_runs[:,::correlation_lenght,which].flatten()
+            (mu[which], sigma[which]) = scipy.stats.norm.fit(data)
+            ks = scipy.stats.kstest((data - data.mean())/data.std(),scipy.stats.norm.cdf)
+            ks_value[which] = ks.statistic
+            ks_pvalue[which] = ks.pvalue
+            
+        statistics = ['Original value','AM result','CVAE result','MCMC mean value','MCMC std value','KS test for normality','KS p-value for normality']
+        print("&" + "&".join(statistics) + '\\\\\\hline')
+
+        for which in range(len(names)):
+            print( names[which] + "&"+"{:.3f}&{:.3f}&{:.3f}&{:.3f}&{:.3f}&{:.3f}&{:.3f}\\\\".format(constant_values[which]\
+                                                                                               ,constant_values[which]*perturbation_factors[5+which]\
+                                                                                               ,constant_values[which]*perturbation_factors_NN[5+which]\
+                                                                                               ,mu[which]\
+                                                                                               ,sigma[which]\
+                                                                                               ,ks_value[which]\
+                                                                                               ,ks_pvalue[which]))
+                
+
 
 if __name__ == '__main__':
 
@@ -400,15 +509,12 @@ if __name__ == '__main__':
     indexes = customTensorData(data_path=data_dir,which='all',per_day = True,randomice=True,one_dimensional = False,seed = 1853,device=my_device).train_indexes
     perturbation_factors = torch.tensor(np.load(MODEL_HOME + '/plot_data/perturbation_factors/perturbation_factors_history_lognormal.npy')[-1]).to(torch.float32)
     perturbation_factors_NN = torch.tensor(np.load(MODEL_HOME + '/plot_data/perturbation_factors/perturbation_factors_history_VAE.npy')[-1]).to(torch.float32)
-    #perturbation_factors = torch.ones(14).to(torch.float32)
+    perturbation_factors_NN = torch.tensor(np.load(MODEL_HOME + '/plot_data/perturbation_factors/perturbation_factors_history_CVAE_one.npy')[-100:]).to(torch.float32).mean(axis=0)
     chla_hat = torch.tensor(np.load( MODEL_HOME + '/results_bayes_lognormal_logparam/X_hat.npy')[:,[0,2,4]]).to(torch.float32).unsqueeze(1)[indexes]
 
-    #with Pool(5) as pool:
-    #    pool.map(saving_mcmc, zip(np.arange(20),[perturbation_factors]*20,[constant]*20,[chla_hat]*20))
-    
-    #list(map(saving_mcmc,zip(np.arange(20,40),[perturbation_factors]*20,[constant]*20,[chla_hat]*20)))
 
     constant_values = np.array([constant['dCDOM'],constant['sCDOM'],5.33,0.45,constant['Theta_min'],constant['Theta_o'],constant['beta'],constant['sigma'],0.005])
+
 
     
     num_runs = 40
@@ -418,51 +524,11 @@ if __name__ == '__main__':
     for i in range(num_runs):
         mcmc_runs[i] = np.load(MODEL_HOME + '/mcmc/run_' + str(i)+'.npy')
 
-    mcmc_runs = mcmc_runs[:,2000:,:]
+    #mcmc_runs = mcmc_runs[:,2000:,:]
     mcmc_runs_mean, mcmc_runs_std = np.empty((14)),np.empty((14))
 
-    correlation_lenght_use = 0
-    for which in range(14):
 
-        correlation = np.empty((num_runs,500))
-        for i in range(num_runs):
-            correlation[i] = autocorr(mcmc_runs[i,:,which],range(500))
-        correlation = np.mean(correlation,axis=0)
-
-        for correlation_lenght in range(500):
-            if correlation[correlation_lenght]<0.4:
-                break
-        if correlation_lenght > correlation_lenght_use:
-            correlation_lenght_use = correlation_lenght
-    
-    data = mcmc_runs[:,::correlation_lenght,:]
-
-    mcmc_runs_ = np.empty((280,14))
-    
-    for i in range(14):
-        mcmc_runs_[:,i] = data[:,:,i].flatten()
-
-    mcmc_runs_dataframe = pd.DataFrame()
-    ticks = ['$\delta_{a_{PH}}$','$\delta_{b_{PH,T}}$','$\delta_{b_{PH,Int}}$','$\delta_{b_{b,PH,T}}$','$\delta_{b_{b,PH,Int}}$','$\delta_{d_{\\text{CDOM}}}$','$\delta_{S_{\\text{CDOM}}}$','$\delta_{q_1}$','$\delta_{q_2}$',\
-                  '$\delta_{\Theta^{\\text{min}}_{\\text{chla}}}$','$\delta_{\Theta^{\\text{0}}_{\\text{chla}}}$',\
-                  '$\delta_{\\beta}$','$\delta_{\sigma}$','$\delta_{b_{b,\\text{NAP}}}$']
-    for i,tick in enumerate(ticks):
-        mcmc_runs_dataframe[tick] = mcmc_runs_[:,i]
-    
-    correlation_matrix = mcmc_runs_dataframe.corr()
-    
-    fig,ax = plt.subplots(layout='constrained')
-    colors1 = plt.cm.Greys_r(np.linspace(0.,1, 128))
-    colors2 = plt.cm.Blues(np.linspace(0., 1, 128))
-    colors = np.vstack((colors1, colors2))
-    mymap = mcolors.LinearSegmentedColormap.from_list('my_colormap', colors)
-    
-    sb.heatmap(correlation_matrix, cmap=mymap, annot=True,vmin=-1,ax=ax)
-    ax.tick_params(axis='x', labelsize=15)
-    ax.tick_params(axis='y', labelsize=15)
-    plt.show()
-    plt.close()
-    
+    #correlation_matrix(num_runs,mcmc_runs,plot=False,table=True)
 
     mcmc_runs = mcmc_runs[:,:,5:] * constant_values
 
@@ -478,78 +544,53 @@ if __name__ == '__main__':
     names = ['$d_{\\text{CDOM}}$ [$\\text{m}^2(\\text{mgCDOM})^{-1}$]','$S_{\\text{CDOM}}$ [nm]','$q_1$','$q_2$',\
              '$\Theta^{\\text{min}}_{\\text{chla}}$ [$\\text{mgChla}\\text{(mgC)}^{-1}$]','$\Theta^{\\text{0}}_{\\text{chla}}$  [$\\text{mgChla}\\text{(mgC)}^{-1}$]',\
              '$\\beta$ [$\\text{mmol}\\text{m}^{-2}\\text{s}^{-1}$]','$\sigma$  [$\\text{mmol}\\text{m}^{-2}\\text{s}^{-1}$]','$b_{b,\\text{NAP}}$']
-    fig,axs = plt.subplots(ncols=3,nrows=3,layout='constrained')
-    for which,ax in enumerate(axs.flatten()):
+    which = 2
+    fig,axs = plt.subplots(ncols=2,nrows=1,layout='constrained',width_ratios=[3/4,1/4])
 
-        ax.axhline( y = constant_values[which],linestyle='--',label='original value',color='black')
+    axs[0].axhline( y = constant_values[which],linestyle='--',label='original value',color='black')
 
-        ax.axhline( y = constant_values[which]*perturbation_factors[5+which],linestyle='dashdot',label='AM result',color='blue')
-        ax.axhline( y = constant_values[which]*perturbation_factors_NN[5+which],linestyle='dashdot',label='CVAE result',color='#f781bf')
-
+    axs[0].axhline( y = constant_values[which]*perturbation_factors[5+which],linestyle='dashdot',label='AM result',color='blue')
+    axs[0].axhline( y = constant_values[which]*perturbation_factors_NN[5+which],linestyle='dashdot',label='CVAE result',color='#f781bf')
+    
     
 
-        ynew = scipy.ndimage.uniform_filter1d(mcmc_runs_mean[:,which], size=100)
-        ax.plot(ynew,label='mcmc')
+    ynew = scipy.ndimage.uniform_filter1d(mcmc_runs_mean[:,which], size=100)
+    axs[0].plot(ynew,label='mcmc')
     
-        ynew1 = scipy.ndimage.uniform_filter1d(mcmc_percentile_20[:,which], size=100)
-        ynew2 = scipy.ndimage.uniform_filter1d(mcmc_percentile_80[:,which], size=100)
-        ax.fill_between(range(1000), ynew1, ynew2,color='gray',zorder = 0.1,alpha=0.8,label = '10 and 90 percentiles of mcmc')
+    ynew1 = scipy.ndimage.uniform_filter1d(mcmc_percentile_20[:,which], size=100)
+    ynew2 = scipy.ndimage.uniform_filter1d(mcmc_percentile_80[:,which], size=100)
+    axs[0].fill_between(range(3000), ynew1, ynew2,color='gray',zorder = 0.1,alpha=0.8,label = '10 and 90 percentiles of mcmc')
     
-        ynew1 = scipy.ndimage.uniform_filter1d(mcmc_percentile_30[:,which], size=100)
-        ynew2 = scipy.ndimage.uniform_filter1d(mcmc_percentile_70[:,which], size=100)
-        ax.fill_between(range(1000), ynew1, ynew2,color='#377eb8',zorder = 0.1,alpha=0.6,label = '30 and 70 percentiles of mcmc')
-        if which == 6:
-            ax.legend(loc='lower left')
-        if which >5:
-            ax.set_xlabel('Iterations after relaxation')
-        ax.set_xlim(0,1000)
-        ax.text(-0.1,1.05,fig_labels[which],transform = ax.transAxes)
-        ax.set_ylabel(names[which])
-    #plt.show()
-    plt.close()
+    ynew1 = scipy.ndimage.uniform_filter1d(mcmc_percentile_30[:,which], size=100)
+    ynew2 = scipy.ndimage.uniform_filter1d(mcmc_percentile_70[:,which], size=100)
+    axs[0].fill_between(range(3000), ynew1, ynew2,color='#377eb8',zorder = 0.1,alpha=0.6,label = '30 and 70 percentiles of mcmc')
+    if which == 6:
+        axs[0,0].legend(loc='lower left')
+    if which >5:
+        axs[0,0].set_xlabel('Iterations after relaxation')
+    axs[0].set_xlim(0,3000)
+    axs[0].text(-0.1,1.05,'(a)',transform = axs[0].transAxes,fontsize=20)
+    axs[0].set_ylabel(names[which])
+    axs[0].set_xlabel('Iterations')
+    axs[0].legend()
 
-
-
-
-
-    fig,axs = plt.subplots(ncols=3,nrows=3,layout='constrained')
-    for which,ax in enumerate(axs.flatten()):
-
-        correlation = np.empty((num_runs,500))
-        for i in range(num_runs):
-            correlation[i] = autocorr(mcmc_runs[i,:,which],range(500))
-        correlation = np.mean(correlation,axis=0)
-
-        for correlation_lenght in range(500):
-            if correlation[correlation_lenght]<0.4:
-                break
+    data = mcmc_runs[:,2000:,5+which]
+    data = data[:,::280].flatten()
+    data = data
     
-        data = mcmc_runs[:,::correlation_lenght,which].flatten()
-        data = data
     
-        (mu, sigma) = scipy.stats.norm.fit(data)
-        n, bins, patches = ax.hist(data,bins=40,density=True,edgecolor='black',color='#377eb8',alpha=0.6)
-
-        ks = scipy.stats.kstest((data - data.mean())/data.std(),scipy.stats.norm.cdf)
-        
-        ax.plot(bins, scipy.stats.norm.pdf(bins,loc=mu,scale=sigma), linewidth=2,color='black',label='mean value: {:.4f}\nstd value: {:.4f}\nKS statistic: {:.4f}\np-value: {:.4f}'.format(mu,sigma,ks.statistic,ks.pvalue))
-
-        
-        ax.axvline(x=constant_values[which],label= 'original values: {:.4f}'.format(constant_values[which]),color='black',linestyle='--')
-        ax.axvline( x = constant_values[which]*perturbation_factors[5+which],linestyle='dashdot',label='AM result: {:.4f}'.format(constant_values[which]*perturbation_factors[5+which]),color='blue')
-        ax.axvline( x = constant_values[which]*perturbation_factors_NN[5+which],linestyle='dashdot',label='CVAE result: {:.4f}'.format(constant_values[which]*perturbation_factors_NN[5+which]),color='#f781bf')
-        ax.set_xlabel(names[which],fontsize='15')
-        ax.text(-0.1,1.05,fig_labels[which],transform = ax.transAxes,fontsize='20')
-
-        y_lims = ax.get_ylim()
-        x_lims = ax.get_xlim()
-        ax.fill_between(np.linspace(mu-sigma,mu+sigma,20), [y_lims[0]]*20, [y_lims[1]]*20,color='gray',zorder = 0.1,alpha=0.8,label='63% confidence interval')
-        ax.set_ylim(y_lims)
-        ax.tick_params(axis='y', labelsize=15)
-        ax.tick_params(axis='x', labelsize=15)
-        ax.set_xlim((x_lims[0] - (x_lims[1] - x_lims[0] )*0.3,x_lims[1]))
-        ax.legend(fontsize="10")
+    n,bins,patches = axs[1].hist(data,orientation='horizontal',bins=40,edgecolor='black',color='#377eb8',alpha=0.6,density=True)
+    (mu, sigma) = scipy.stats.norm.fit(data)
+    axs[1].plot(scipy.stats.norm.pdf(bins,loc=mu,scale=sigma),bins , linewidth=2,color='black',label='normal distribution\nmean: {:.3f}\nstd: {:.3f}'.format(mu,sigma))
+    axs[1].legend()
+    axs[1].text(-0.1,1.05,'(b)',transform = axs[1].transAxes,fontsize=20)
+    axs[1].set_xlabel('Probability density')
     plt.show()
+    plt.close()
+    mcmc_runs = mcmc_runs[:,2000:,:]
 
+
+    parameters_statistics(num_runs,mcmc_runs,names,correlation_lenght=280,plot=False,table=True)
+    
     plot_constants_2(perturbation_path = MODEL_HOME + '/plot_data/perturbation_factors',vae_name = 'perturbation_factors_history_VAE.npy')
             
