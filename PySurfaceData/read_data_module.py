@@ -6,6 +6,16 @@ import scipy
 import pandas as pd
 from scipy import stats
 
+"""
+classes:
+ customTensorData()
+
+functions:
+ read_constants()
+ transform_to_data_dataframe()
+ add_run_to_dataframe()
+"""
+
 class customTensorData():
 
     def __init__(self,data_path='./npy_data',transform=None,target_transform=None,train_percentage = 0.9,from_where = 'left',randomice=False,specific_columns=None,which='train',\
