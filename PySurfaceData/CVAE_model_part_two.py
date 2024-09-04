@@ -169,7 +169,7 @@ class NN_second_layer(nn.Module):
 
 class composed_loss_function(nn.Module):
 
-    def __init__(self,precision = torch.float32,my_device = 'cpu',rrs_mul=torch.ones(5),chla_mul=torch.ones(1),kd_mul=torch.ones(5),bbp_mul=torch.ones(3),dk_alpha=0.001):
+    def __init__(self,precision = torch.float32,my_device = 'cpu',rrs_mul=torch.ones(5),chla_mul=torch.ones(1),kd_mul=torch.ones(5),bbp_mul=torch.ones(3),dk_alpha=0.0001):
         super(composed_loss_function, self).__init__()
         self.dk_alpha=dk_alpha
         self.precision = precision
@@ -210,12 +210,7 @@ class composed_loss_function(nn.Module):
             + 0.5* torch.sum(  (mu_z.unsqueeze(1) -0.6447) @ cov_z_inv @ torch.transpose((mu_z.unsqueeze(1) -0.6447),dim0=1,dim1=2)) /(3*pred_.shape[0]) #(0 - nn_model.add)/nn_model.mul = 0.6447
         
         l2_norm =  (( parameters - 1 )**2).mean()
-        error = rrs_error +  obs_error + DK*0.0001 + l2_norm
-
-
-        if torch.isnan(error):
-            print(rrs_error,obs_error,DK,mu_z,cov_z)
-            print(asdfasdf)
+        error = rrs_error +  obs_error + DK*self.dk_alpha + l2_norm
             
         return (error).to(self.my_device)
 
@@ -258,7 +253,7 @@ def train_one_epoch(epoch_index,training_dataloader,loss_fn,optimizer,model,date
 
 def validation_loop(epoch_index,validation_dataloader,loss_fn,optimizer,model,my_device = 'cpu'):   
     running_vloss = 0.
-    def one_loop(data):
+    def one_loop(vdata):
         vinputs, vlabels_nan = vdata
         z_hat,cov_z,mu_z,kd_hat,bbp_hat,rrs_hat = model(vinputs)
         Y_masked, pred_masked = mask_nans(vlabels_nan,kd_hat,bbp_hat,z_hat,my_device = my_device)
@@ -364,27 +359,26 @@ def explore_hyperparameters():
     torch.manual_seed(0)
     
     config_space = CS.ConfigurationSpace({
-        "batch_size":[10,14,20],
+        "batch_size":[20,25,30],
         
-        "number_hiden_layers_mean":list(np.arange(1,4)),
-        "dim_hiden_layers_mean":list(np.arange(14,20)),
-        "dim_last_hiden_layer_mean":list(np.arange(14,20)) ,
-        "alpha_mean":CS.Float("alpha_mean",bounds=(0.5, 3),distribution=CS.Normal(1.5204882322691, 0.2)),
+        "number_hiden_layers_mean":list(np.arange(2,5)),
+        "dim_hiden_layers_mean":list(np.arange(16,22)),
+        "dim_last_hiden_layer_mean":list(np.arange(16,22)) ,
+        "alpha_mean":CS.Float("alpha_mean",bounds=(0.5, 3),distribution=CS.Normal(1.3996294280783, 0.1)),
 
-        "number_hiden_layers_cov":list(np.arange(1,4)),
-        "dim_hiden_layers_cov":list(np.arange(11,15)),
-        "dim_last_hiden_layer_cov":list(np.arange(10,15)) ,
-        "alpha_cov":CS.Float("alpha_cov",bounds=(0.5, 3),distribution=CS.Normal(0.8119743562784, 0.1)),
+        "number_hiden_layers_cov":list(np.arange(2,5)),
+        "dim_hiden_layers_cov":list(np.arange(13,17)),
+        "dim_last_hiden_layer_cov":list(np.arange(11,15)) ,
+        "alpha_cov":CS.Float("alpha_cov",bounds=(0.5, 3),distribution=CS.Normal(0.7429518278001, 0.1)),
         
-        "betas1":CS.Float("betas1",bounds=(0.5, 0.99),distribution=CS.Normal(0.7259411990309 , 0.1)),
-        "betas2":CS.Float("betas2",bounds=(0.5, 0.99),distribution=CS.Normal(0.5145689601656, 0.2)),
-        "lr":CS.Float("lr",bounds=(0.0001, 0.01),distribution=CS.Normal(0.0014725094966, 0.01),log=True),
+        "betas1":CS.Float("betas1",bounds=(0.5, 0.99),distribution=CS.Normal(0.6952126048336  , 0.1)),
+        "betas2":CS.Float("betas2",bounds=(0.5, 0.99),distribution=CS.Normal(0.7070708257291, 0.1)),
+        "lr":CS.Float("lr",bounds=(0.0001, 0.01),distribution=CS.Normal(0.0083660712025, 0.01),log=True),
 
-        "dk_alpha":CS.Float("dk_alpha",bounds=(0,1),distribution = CS.Normal(0.001,0.01))
+        "dk_alpha":CS.Float("dk_alpha",bounds=(0,1),distribution = CS.Normal(0.0001,0.01))
         })
 
-
-
+    
     max_iterations = 10
     bohb_hyperband = HyperBandForBOHB(
         time_attr="training_iteration",
@@ -465,7 +459,7 @@ def save_cvae_first_part():
     validation_loss = []
     train_loss = []
 
-    perturbation_factors_history = np.empty((501,14))
+    perturbation_factors_history = np.empty((1001,14))
     perturbation_factors_history[0] = list(iter(model.parameters()))[-1].clone().detach().cpu()
     
 
@@ -485,11 +479,11 @@ def save_cvae_first_part():
         perturbation_factors_history[epoch+1] = list(iter(model.parameters()))[-1].clone().detach()
             
         
-    list(map(one_epoch,range(500)))
+    list(map(one_epoch,range(1000)))
         
         
-    torch.save(model.state_dict(), data_dir+'/../VAE_model/model_second_part_two.pt')
-    np.save(data_dir+'/../plot_data/perturbation_factors/perturbation_factors_history_CVAE_two',perturbation_factors_history)
+    torch.save(model.state_dict(), data_dir+'/../VAE_model/model_second_part_chla_centered.pt')
+    np.save(data_dir+'/../plot_data/perturbation_factors/perturbation_factors_history_CVAE_chla_centered.npy',perturbation_factors_history)
     print('perturbation_factors_history saved in',data_dir+'/../plot_data/perturbation_factors')
     
 
@@ -540,47 +534,34 @@ if __name__ == '__main__':
 
     #explore_hyperparameters()
 
-    save_cvae_first_part()
+    #save_cvae_first_part()
 
     
     
     experiment_path = '/Users/carlos/ray_results/bohb_minimization_part2'
     data_dir = '/Users/carlos/Documents/OGS_one_d_model/npy_data'
         
-    restored_tuner = tune.Tuner.restore(experiment_path, trainable=partial(train_cifar, data_dir=data_dir))
-    result_grid = restored_tuner.get_results()
+    #restored_tuner = tune.Tuner.restore(experiment_path, trainable=partial(train_cifar, data_dir=data_dir))
+    #result_grid = restored_tuner.get_results()
+    #best_result = result_grid.get_best_result("loss_validation","min")
 
-    best_result = result_grid.get_best_result("loss_validation","min")
- 
-    batch_size = int(best_result.config['batch_size'])
-    number_hiden_layers_mean = best_result.config['number_hiden_layers_mean']
-    dim_hiden_layers_mean = best_result.config['dim_hiden_layers_mean']
-    dim_last_hiden_layer_mean = best_result.config['dim_last_hiden_layer_mean']
-    alpha_mean = best_result.config['alpha_mean']
-    number_hiden_layers_cov = best_result.config['number_hiden_layers_cov']
-    dim_hiden_layers_cov = best_result.config['dim_hiden_layers_cov']
-    dim_last_hiden_layer_cov = best_result.config['dim_last_hiden_layer_cov']
-    alpha_cov = best_result.config['alpha_cov']
-    lr = best_result.config['lr']
-    betas1 = best_result.config['betas1'] 
-    betas2 = best_result.config['betas2']
-    dk_alpha = best_result.config['dk_alpha']
+        
+    #torch.save(best_result.config,'/Users/carlos/Documents/OGS_one_d_model/VAE_model/model_second_part_final_config.pt')
+    best_result_config = torch.load('/Users/carlos/Documents/OGS_one_d_model/VAE_model/model_second_part_final_config.pt')
 
-    print(best_result.config)
- 
-    batch_size = 20
-    number_hiden_layers_mean = 3
-    dim_hiden_layers_mean = 18
-    dim_last_hiden_layer_mean = 17
-    alpha_mean = 1.3996294280783
-    number_hiden_layers_cov = 2
-    dim_hiden_layers_cov = 14
-    dim_last_hiden_layer_cov =12
-    alpha_cov = 0.7429518278001
-    lr = 0.0083660712025
-    betas1 = 0.6952126048336 
-    betas2 = 0.7070708257291
-    dk_alpha = 0.0030880662181
+    batch_size = int(best_result_config['batch_size'])
+    number_hiden_layers_mean = best_result_config['number_hiden_layers_mean']
+    dim_hiden_layers_mean = best_result_config['dim_hiden_layers_mean']
+    dim_last_hiden_layer_mean = best_result_config['dim_last_hiden_layer_mean']
+    alpha_mean = best_result_config['alpha_mean']
+    number_hiden_layers_cov = best_result_config['number_hiden_layers_cov']
+    dim_hiden_layers_cov = best_result_config['dim_hiden_layers_cov']
+    dim_last_hiden_layer_cov = best_result_config['dim_last_hiden_layer_cov']
+    alpha_cov = best_result_config['alpha_cov']
+    lr = best_result_config['lr']
+    betas1 = best_result_config['betas1'] 
+    betas2 = best_result_config['betas2']
+    dk_alpha = best_result_config['dk_alpha']
 
 
     my_device = 'cpu'
@@ -596,7 +577,7 @@ if __name__ == '__main__':
                            dim_hiden_layers_cov = dim_hiden_layers_cov,alpha_cov=alpha_cov,dim_last_hiden_layer_cov = dim_last_hiden_layer_cov,x_mul=data.x_mul,x_add=data.x_add,\
                            y_mul=data.y_mul,y_add=data.y_add,constant = constant,model_dir = '/Users/carlos/Documents/OGS_one_d_model/VAE_model').to(my_device)
 
-    model.load_state_dict(torch.load(data_dir+'/../VAE_model/model_second_part_two.pt'))
+    model.load_state_dict(torch.load(data_dir+'/../VAE_model/model_second_part_chla_centered.pt'))
     X,Y = next(iter(dataloader))
     
     z_hat,cov_z,mu_z,kd_hat,bbp_hat,rrs_hat = model(X)
@@ -611,7 +592,7 @@ if __name__ == '__main__':
     rrs_hat = rrs_hat * data.x_mul[:5] + data.x_add[:5]
     X = model.rearange_RRS(X)
         
-    save_var_uncertainties(model.Forward_Model,X,mu_z,cov_z,rrs_hat,constant=constant,dates = data.dates)
+    save_var_uncertainties(model.Forward_Model,X,mu_z,cov_z,rrs_hat,constant=constant,dates = data.dates,save_path ='/Users/carlos/Documents/OGS_one_d_model/VAE_model/results_VAE_VAEparam_chla')
     
     
 

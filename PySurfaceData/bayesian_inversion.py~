@@ -1,0 +1,127 @@
+
+import Forward_module as fm
+import read_data_module as rdm
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
+import pandas as pd
+import os
+import scipy
+from scipy import stats
+from torch.utils.data import DataLoader,random_split
+import time
+import sys
+import seaborn as sb
+import Forward_module as fm
+import read_data_module as rm
+from torch.utils.data import DataLoader
+from multiprocessing.pool import Pool
+import matplotlib.colors as mcolors
+
+
+MODEL_HOME = '/Users/carlos/Documents/OGS_one_d_model'
+
+class evaluate_model():
+
+    def __init__(self,data_path = MODEL_HOME + '/npy_data',iterations=10, my_device = 'cpu'):
+
+        self.data = rm.customTensorData(data_path=data_path,which='train',per_day = False,randomice=False,seed=1853)
+        self.dates = self.data.dates
+        self.my_device = 'cpu'
+    
+        self.constant = read_constants(file1=MODEL_HOME + '/cte_lambda.csv',file2=MODEL_HOME + '/cst.csv',my_device = my_device)
+    
+        self.x_a = torch.zeros(3)
+        self.s_a = torch.eye(3)*100
+        self.s_e = (torch.eye(5)*torch.tensor([1.5e-3,1.2e-3,1e-3,8.6e-4,5.7e-4]))**(2)#validation rmse from https://catalogue.marine.copernicus.eu/documents/QUID/CMEMS-OC-QUID-009-141to144-151to154.pdf
+
+        self.lr = 0.029853826189179603
+        self.batch_size = self.data.len_data
+        self.dataloader = DataLoader(self.data, batch_size=self.batch_size, shuffle=False)
+        self.model = Forward_Model(num_days=self.batch_size).to(my_device)
+
+        self.loss = RRS_loss(self.x_a,self.s_a,self.s_e,num_days=self.batch_size,my_device = self.my_device)
+        self.optimizer = torch.optim.Adam(self.model.parameters(),lr=self.lr)
+        self.iterations = iterations
+        self.X,self.Y = next(iter(self.dataloader))
+
+    def model_parameters_update(self,perturbation_factors):        
+        self.model.perturbation_factors = perturbation_factors
+
+    def model_chla_init(self,chla_hat):
+        state_dict = self.model.state_dict()
+
+        state_dict['chparam'] = chla_hat
+        self.model.load_state_dict(state_dict)
+
+    def step(self,iteration):
+        RRS = self.model(self.X[:,:,1:],constant = self.constant)
+        loss = self.loss(self.X[:,:,0],RRS,self.model.state_dict()['chparam'])
+        loss.backward()
+        self.optimizer.step()
+        self.optimizer.zero_grad()
+        #self.scheduler.step(loss)
+        
+    def predict(self):
+        #self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, 'min')
+        list(map(self.step,range(self.iterations)))
+
+        
+    def return_chla(self):
+        return self.model.state_dict()['chparam'].clone().detach()
+    
+class mcmc_class():
+    def __init__(self,chla_hat,perturbation_factors = torch.ones(14),proposal_variance = 1,constant = None,num_iterations = 100):
+
+        self.current_position = perturbation_factors + torch.randn(14)*0.01
+        self.proposal_variance = proposal_variance
+        self.model = evaluate_model()
+        self.X, self.Y_nan  = next(iter(self.model.dataloader))
+        
+        self.Y = torch.masked_fill(self.Y_nan,torch.isnan(self.Y_nan),0)
+        self.model.model_parameters_update(self.current_position)
+        self.model.model_chla_init(chla_hat)
+        self.model.iterations = 250
+        self.model.predict()
+        self.model.iterations = 5
+        self.evaluate_model = evaluate_model_class(model = None,X = self.X[:,:,1:],constant = constant)
+        self.loss = OBS_loss()
+
+        self.history = torch.empty((num_iterations,14))
+
+    def forward_sampling(self):
+        return self.proposal_variance * torch.randn(14) + self.current_position
+
+    def likelihood(self,position,chla):
+        kd = self.evaluate_model.kd_der(parameters_eval = chla, perturbation_factors_ = self.current_position)
+        bbp = self.evaluate_model.bbp_der(parameters_eval = chla, perturbation_factors_ = self.current_position)
+            
+        pred = torch.empty((chla.shape[0],9))
+        pred[:,0] = chla[:,0,0]
+        pred[:,1:6] = torch.masked_fill(kd,torch.isnan(self.Y_nan[:,1:6]),0)
+        pred[:,6:] = torch.masked_fill(bbp,torch.isnan(self.Y_nan[:,6:]),0)
+
+        loss = self.loss(self.Y,pred,self.Y_nan)
+        return -(0.5)*loss*pred.shape[0]
+                
+    def step(self,iteration):
+            
+        chla_current = self.model.return_chla()
+        log_likelihood_current = self.likelihood(self.current_position,chla_current)
+
+        new_state = self.forward_sampling()
+        self.model.model_parameters_update(new_state)
+        self.model.predict()
+        chla_new = self.model.return_chla()
+        log_likelihood_new = self.likelihood(new_state,chla_new)
+
+        rho = (log_likelihood_new-log_likelihood_current)
+        rho = torch.exp(rho)
+        if rho >= 1:
+            self.current_position = new_state
+        elif torch.rand(1) < rho:
+            self.current_position = new_state
+        else:
+            self.model.model_parameters_update(self.current_position)
+            self.model.model_chla_init(chla_current)
+        self.history[iteration] = self.current_position

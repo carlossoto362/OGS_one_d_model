@@ -68,7 +68,6 @@ def read_second_run(second_run_path,include_uncertainty=False,abr='output',name_
         X_name = 'X_hat'+'_'+name_index+'.npy'
         kd_name = 'kd_hat'+'_'+name_index+'.npy'
         bbp_name = 'bbp_hat'+'_'+name_index+'.npy'
-
     second_run_output[second_run_output.columns[:5]] = np.load(second_run_path + '/'+RRS_name)
     second_run_output[second_run_output.columns[5:5+len_chla]] = np.load(second_run_path + '/'+X_name)
     second_run_output[second_run_output.columns[5+len_chla:5+len_chla + len_kd]] = np.load(second_run_path + '/'+kd_name)
@@ -83,7 +82,7 @@ def read_second_run(second_run_path,include_uncertainty=False,abr='output',name_
 
 
 def plot_parallel(data,columns,names,labels,statistics = True,histogram=True,figsize=(30,17),date_init = None,\
-                  date_end = None, shadow_error = False,num_cols = 2,figname = 'fig.png',fontsize=15,colors = 1,save=True,indexes=[],ylim=[],legend_fontsize=12,s=2):
+                  date_end = None, shadow_error = False,num_cols = 2,figname = 'fig.png',fontsize=15,colors = 1,save=True,indexes=[],ylim=[],legend_fontsize=15,s=2,log_scale = False):
     if colors == 1:
         colors_palet = ['#377eb8','blue']
     elif colors == 2:
@@ -162,10 +161,9 @@ def plot_parallel(data,columns,names,labels,statistics = True,histogram=True,fig
                     pass
                 else:
                     if (column[0].split('_')[0] == 'chla') or (column[0].split('_')[0] == 'NAP') or (column[0].split('_')[0] == 'CDOM'):
-                        print(column[0])
-                        ax.scatter(dates,np.exp(data_use[column[0]]),marker = 'o',label=labels[k][0],color='black',s=s,zorder = 10,alpha=0.7)
+                        ax.scatter(dates,np.exp(data_use[column[0]]),marker = 'o',label=labels[k][0],color='black',s=s,zorder = 10,alpha=0.7,edgecolor='black')
                     else:
-                        ax.scatter(dates,data_use[column[0]],marker = 'o',label=labels[k][0],color='black',s=s,zorder = 10,alpha=0.7)
+                        ax.scatter(dates,data_use[column[0]],marker = 'o',label=labels[k][0],color='black',s=s,zorder = 10,alpha=0.7,edgecolor='black')
                 ax.set_xlabel('date',fontsize=fontsize)
                 ax.set_ylabel(names[k],fontsize=fontsize)
                 if (statistics == True) and (histogram == False):
@@ -173,9 +171,9 @@ def plot_parallel(data,columns,names,labels,statistics = True,histogram=True,fig
             
             if len(column) == 2:
                 if (column[0].split('_')[0] == 'chla') or (column[0].split('_')[0] == 'NAP') or (column[0].split('_')[0] == 'CDOM'):
-                    ax.scatter(dates,np.exp(data_use[column[1]]),marker ='*',label=labels[k][1],color=colors_palet[0],alpha=0.6,s=s,zorder = 5)
+                    ax.scatter(dates,np.exp(data_use[column[1]]),marker ='*',label=labels[k][1],color=colors_palet[0],alpha=0.6,s=s,zorder = 5,edgecolor='black')
                 else:
-                    ax.scatter(dates,data_use[column[1]],marker ='*',label=labels[k][1],color=colors_palet[0],alpha=0.6,s=s,zorder = 5)
+                    ax.scatter(dates,data_use[column[1]],marker ='*',label=labels[k][1],color=colors_palet[0],alpha=0.6,s=s,zorder = 5,edgecolor='black')
             if len(column) >= 3:
                 if (column[0].split('_')[0] == 'chla') or (column[0].split('_')[0] == 'NAP') or (column[0].split('_')[0] == 'CDOM'):
                     median = np.exp(data_use[column[1]])
@@ -190,15 +188,15 @@ def plot_parallel(data,columns,names,labels,statistics = True,histogram=True,fig
                     ax.errorbar(dates, data_plot['data'], yerr=[data_plot['error_down'],data_plot['error_up']], capsize=2, fmt="o", c=colors_palet[1],ecolor=colors_palet[0],ms=2,alpha=0.6,zorder=5,label = labels[k][1])
                 else:
                     if (column[0].split('_')[0] == 'chla') or (column[0].split('_')[0] == 'NAP') or (column[0].split('_')[0] == 'CDOM'):
-                        ax.scatter(dates,np.exp(data_use[column[1]]),marker ='x',label=labels[k][1],color=colors_palet[1],alpha=0.6,s=5*s,linewidths=0.5,zorder = 5)
+                        ax.scatter(dates,np.exp(data_use[column[1]]),marker ='x',label=labels[k][1],color=colors_palet[1],alpha=0.6,s=5*s,linewidths=0.5,zorder = 5,edgecolor='black')
                     else:
-                        ax.scatter(dates,data_use[column[1]],marker ='x',label=labels[k][1],color=colors_palet[1],alpha=0.6,s=5*s,linewidths=0.5,zorder = 5)
+                        ax.scatter(dates,data_use[column[1]],marker ='x',label=labels[k][1],color=colors_palet[1],alpha=0.6,s=5*s,linewidths=0.5,zorder = 5,edgecolor='black')
                     ax.fill_between(dates, data_plot['data']-data_plot['error_down'], data_plot['data']+data_plot['error_up'],color=colors_palet[0],alpha=0.6,zorder = 1)
             if len(column) == 4:
                 if (column[0].split('_')[0] == 'chla') or (column[0].split('_')[0] == 'NAP') or (column[0].split('_')[0] == 'CDOM'):
-                    ax.scatter(dates,np.exp(data_use[column[3]]),marker='+',label=labels[k][-1],color = '#D81B60',alpha=1,zorder=50,s=5*s,linewidths=0.5)
+                    ax.scatter(dates,np.exp(data_use[column[3]]),marker='+',label=labels[k][-1],color = '#D81B60',alpha=1,zorder=50,s=5*s,linewidths=0.5,edgecolor='black')
                 else:
-                    ax.scatter(dates,data_use[column[3]],marker='+',label=labels[k][-1],color = '#D81B60',alpha=1,zorder=50,s=5*s,linewidths=0.5)
+                    ax.scatter(dates,data_use[column[3]],marker='+',label=labels[k][-1],color = '#D81B60',alpha=1,zorder=50,s=5*s,linewidths=0.5,edgecolor='black')
 
             ax.tick_params(axis='x', labelsize=fontsize)
             ax.tick_params(axis='y', labelsize=fontsize)
@@ -234,7 +232,7 @@ def plot_parallel(data,columns,names,labels,statistics = True,histogram=True,fig
             if column[0].split('_')[0] == 'bbp':
                 ax.set_ylim(1e-4,0.005)
                 #ax.set_yscale('log')
-            ax.legend(fontsize=legend_fontsize)
+            ax.legend(fontsize=legend_fontsize,markerscale=3.)
             if len(indexes)>0:
                 ax.text(-0.03,1.13,indexes[k],transform = ax.transAxes,fontsize=fontsize)
                 
@@ -244,7 +242,9 @@ def plot_parallel(data,columns,names,labels,statistics = True,histogram=True,fig
                 pass
             else:
                 ax.set_ylim(ylim[0],ylim[1])
-        
+
+            if log_scale == True:
+                ax.set_yscale('log')
     fig.tight_layout()
     if save == True:
         
@@ -252,9 +252,9 @@ def plot_parallel(data,columns,names,labels,statistics = True,histogram=True,fig
     else:
         plt.show()
     
-def plot_kd(input_data_path = MODEL_HOME + '/results_bayes_lognormal_logparam',ylim=[],\
+def plot_kd(input_data_path = MODEL_HOME + '/results_bayes_lognormal_logparam',ylim=[],indexes=None,\
                 figname = MODEL_HOME + '/plot_data/kd_lognormal_data.pdf',save=True,date_init = datetime(year=2005,month=1,day=1),\
-                third_data_path = MODEL_HOME + '/results_VAE_VAEparam',statistics=False, num_cols = 1,figsize=(30,17),labels_names=['In situ data','Bayesian Alternate Minimization']):
+                third_data_path = MODEL_HOME + '/results_VAE_VAEparam',statistics=False, num_cols = 1,figsize=(30,17),labels_names=['In situ data','Bayesian Alternate Minimization'],log_scale = False):
 
     data = data_dataframe( MODEL_HOME + '/npy_data')
 
@@ -266,6 +266,16 @@ def plot_kd(input_data_path = MODEL_HOME + '/results_bayes_lognormal_logparam',y
     data = second_run.merge(data,how='right',on='date')
     data.sort_values(by='date',inplace=True)
     del second_run
+
+    if indexes is None:
+        pass
+    else:
+        data = data.iloc[indexes]
+        data.sort_values(by='date',inplace=True)
+
+
+
+    
 
     
     lambdas_names = ['412','442','490','510','555']
@@ -283,11 +293,11 @@ def plot_kd(input_data_path = MODEL_HOME + '/results_bayes_lognormal_logparam',y
 
 
     plot_parallel(data,columns,names,labels,statistics = statistics,histogram=False,date_init = date_init,shadow_error = True,num_cols=num_cols,\
-                  figname = figname,fontsize=25,colors = 1,save=save,figsize = figsize,indexes = indexes,ylim=ylim)
+                  figname = figname,fontsize=25,colors = 1,save=save,figsize = figsize,indexes = indexes,ylim=ylim,log_scale = log_scale)
 
-def plot_bbp(input_data_path = MODEL_HOME + '/results_bayes_lognormal_logparam',ylim=[],\
+def plot_bbp(input_data_path = MODEL_HOME + '/results_bayes_lognormal_logparam',ylim=[],indexes=None,\
                 figname = MODEL_HOME + '/plot_data/bbp_lognormal_data.pdf',save=True,date_init = datetime(year=2005,month=1,day=1),\
-                third_data_path = MODEL_HOME + '/results_VAE_VAEparam',statistics=False, num_cols = 2,figsize=(30,17),labels_names=['In situ data','Bayesian Alternate Minimization']):
+                third_data_path = MODEL_HOME + '/results_VAE_VAEparam',statistics=False, num_cols = 2,figsize=(30,17),labels_names=['In situ data','Bayesian Alternate Minimization'],log_scale = True):
 
     data = data_dataframe(MODEL_HOME + '/npy_data')
 
@@ -299,6 +309,12 @@ def plot_bbp(input_data_path = MODEL_HOME + '/results_bayes_lognormal_logparam',
     data = second_run.merge(data,how='right',on='date')
     data.sort_values(by='date',inplace=True)
     del second_run
+
+    if indexes is None:
+        pass
+    else:
+        data = data.iloc[indexes]
+        data.sort_values(by='date',inplace=True)
 
     
     lambdas_names = ['412','442','490','510','555']
@@ -316,11 +332,11 @@ def plot_bbp(input_data_path = MODEL_HOME + '/results_bayes_lognormal_logparam',
             labels.append((*labels_names,*labels_names,'Generative Neural Network Output'))
 
     plot_parallel(data,columns,names,labels,statistics = statistics,histogram=False,date_init = date_init,shadow_error = True,num_cols=num_cols,\
-                  figname = figname,fontsize=25,colors = 1,save=save,figsize = figsize,indexes = indexes,ylim=ylim)
+                  figname = figname,fontsize=25,colors = 1,save=save,figsize = figsize,indexes = indexes,ylim=ylim,log_scale = log_scale)
 
 def plot_chla(input_data_path = MODEL_HOME + '/results_bayes_lognormal_logparam',ylim=[],\
-                figname = MODEL_HOME + '/plot_data/chla_lognormal_data.pdf',save=True,date_init = datetime(year=2005,month=1,day=1),\
-                third_data_path = MODEL_HOME + '/results_VAE_VAEparam',statistics=False, num_cols = 2,figsize=(30,17),labels_names=['In situ data','Bayesian Alternate Minimization']):
+                figname = MODEL_HOME + '/plot_data/chla_lognormal_data.pdf',save=True,date_init = datetime(year=2005,month=1,day=1),indexes=None,\
+                third_data_path = MODEL_HOME + '/results_VAE_VAEparam',statistics=False, num_cols = 2,figsize=(30,17),labels_names=['In situ data','Bayesian Alternate Minimization'],log_scale = True):
 
     data = data_dataframe( MODEL_HOME + '/npy_data')
 
@@ -333,6 +349,12 @@ def plot_chla(input_data_path = MODEL_HOME + '/results_bayes_lognormal_logparam'
     data.sort_values(by='date',inplace=True)
     del second_run
 
+    if indexes is None:
+        pass
+    else:
+        data = data.iloc[indexes]
+        data.sort_values(by='date',inplace=True)
+
     
     lambdas_names = ['412','442','490','510','555']
     lambdas_values = ['412.5','442.5','490','510','555']
@@ -342,7 +364,7 @@ def plot_chla(input_data_path = MODEL_HOME + '/results_bayes_lognormal_logparam'
     labels = []
     indexes = ['(a)','(b)','(c)','(d)','(e)','(f)','(g)','(h)','(i)','(j)','(k)']
 
-
+    
     columns.append(('chla','chla_output','delta_chla_output','chla_outputVAE'))
     names.append('$\\text{Chl-a } [\\text{mg}\\text{m}^{-3}]$')
     labels.append((*labels_names,*labels_names,'Generative Neural Network Output'))
@@ -356,7 +378,7 @@ def plot_chla(input_data_path = MODEL_HOME + '/results_bayes_lognormal_logparam'
     labels.append((*labels_names,*labels_names,'Generative Neural Network Output'))
 
     plot_parallel(data,columns,names,labels,statistics = statistics,histogram=False,date_init = date_init,shadow_error = True,num_cols=num_cols,\
-                  figname = figname,fontsize=25,colors = 1,save=save,figsize = figsize,indexes = indexes,ylim=ylim)
+                  figname = figname,fontsize=25,colors = 1,save=save,figsize = figsize,indexes = indexes,ylim=ylim,log_scale = log_scale)
 
 def comparison_alphas():
     data = data_dataframe(MODEL_HOME + '/npy_data',which = 'all')
@@ -467,7 +489,7 @@ def plot_scaterplot(test_indexes , vae_path = MODEL_HOME + '/results_VAE_VAEpara
 
     data['NAP'] = np.nan
     data['CDOM'] = np.nan
-    second_run = read_second_run(MODEL_HOME + '/results_bayes_lognormal_mcmcparam',include_uncertainty=True,abr='log_output')
+    second_run = read_second_run(MODEL_HOME + '/results_bayes_AM_test',include_uncertainty=True,abr='log_output')
     data = second_run.merge(data,how='right',on='date')
     second_run = read_second_run(MODEL_HOME + '/results_bayes_lognormal_VAEparam',include_uncertainty=True,abr='logNN_output')
     data = second_run.merge(data,how='right',on='date')
@@ -595,7 +617,7 @@ def plot_constants_1(perturbation_path = MODEL_HOME + '/plot_data/perturbation_f
     
     perturbation_factors_history_NN = torch.tensor(np.load(perturbation_path + '/' +  vae_name)).to(torch.float32)
     
-    perturbation_factors_history_lognormal = torch.tensor(np.load(perturbation_path + '/perturbation_factors_history_lognormal.npy')).to(torch.float32)
+    perturbation_factors_history_lognormal = torch.tensor(np.load(perturbation_path + '/perturbation_factors_history_AM_test.npy')).to(torch.float32)
     constant = read_constants(file1='./cte_lambda.csv',file2='./cst.csv')
 
     constants_history_NN = perturbation_factors_history_NN[:-1,5:]* np.array([constant['dCDOM'],constant['sCDOM'],5.33,0.45,constant['Theta_min'],constant['Theta_o'],constant['beta'],constant['sigma'],0.005])
@@ -642,7 +664,7 @@ def plot_constants_1(perturbation_path = MODEL_HOME + '/plot_data/perturbation_f
 def plot_constants_2(perturbation_path = '/Users/carlos/Documents/OGS_one_d_model/plot_data/perturbation_factors',vae_name = 'perturbation_factors_history_VAE.npy'):
     
     perturbation_factors_history_NN = torch.tensor(np.load(perturbation_path + '/'+vae_name)).to(torch.float32)[:400]
-    perturbation_factors_history_lognormal = torch.tensor(np.load(perturbation_path + '/perturbation_factors_history_lognormal.npy')).to(torch.float32)[:400]
+    perturbation_factors_history_lognormal = torch.tensor(np.load(perturbation_path + '/perturbation_factors_history_AM_test.npy')).to(torch.float32)[:400]
     constant = read_constants(file1='./cte_lambda.csv',file2='./cst.csv')
 
     labs = ['(a)','(b)','(c)']
@@ -740,33 +762,34 @@ test_indexes,train_indexes = customTensorData(data_path='npy_data',which='train'
     customTensorData(data_path='npy_data',which='train',per_day = False,randomice=True,one_dimensional = True,seed = 1853).train_indexes
 
 
-plot_scaterplot(test_indexes,vae_path = MODEL_HOME + '/VAE_model/results_VAE_VAEparam')
-plot_constants_1(vae_name = 'perturbation_factors_history_CVAE_one.npy')
-plot_constants_2(vae_name = 'perturbation_factors_history_CVAE_one.npy')
+plot_scaterplot(test_indexes,vae_path = MODEL_HOME + '/VAE_model/results_VAE_VAEparam_chla')
 
-plot_chla(input_data_path = MODEL_HOME + '/results_bayes_lognormal_logparam',\
-                figname = MODEL_HOME + '/plot_data/chla_lognormal_data.pdf',save=False,date_init = datetime(year=2012,month=1,day=1),\
+
+plot_constants_1(vae_name = 'perturbation_factors_history_CVAE_chla_centered.npy')
+
+
+plot_constants_2(vae_name = 'perturbation_factors_history_CVAE_chla_centered.npy')
+print(asdfadsf)
+plot_chla(input_data_path = MODEL_HOME + '/results_bayes_lognormal_VAEparam',\
+                figname = MODEL_HOME + '/plot_data/chla_lognormal_data_chla_centered.pdf',save=True,date_init = datetime(year=2005,month=1,day=1),\
                 statistics=False, num_cols = 1,labels_names=['In situ data','Bayesian MAP output and Uncertainty'],ylim=[],figsize=(17,12),\
-          third_data_path = MODEL_HOME + '/VAE_model/results_VAE_VAEparam')
-
-plot_kd(input_data_path = MODEL_HOME + '/results_bayes_lognormal_logparam',\
-                figname = MODEL_HOME + '/plot_data/kd_lognormal_data.pdf',save=False,date_init = datetime(year=2012,month=1,day=1),\
-                statistics=False, num_cols = 1,labels_names=['In situ data','Bayesian MAP output and Uncertainty'],ylim=[0,0.31],figsize=(17,17),\
-        third_data_path = MODEL_HOME + '/VAE_model/results_VAE_VAEparam')
+          third_data_path = MODEL_HOME + '/VAE_model/results_VAE_VAEparam_chla',log_scale=True)
 
 
 
-plot_bbp(input_data_path = MODEL_HOME + '/results_bayes_lognormal_logparam',\
-                figname = MODEL_HOME + '/plot_data/bbp_lognormal_data.pdf',save=False,date_init = datetime(year=2012,month=1,day=1),\
+
+plot_kd(input_data_path = MODEL_HOME + '/results_bayes_lognormal_VAEparam',\
+                figname = MODEL_HOME + '/plot_data/kd_lognormal_data_chla_centerd.pdf',save=True,date_init = datetime(year=2005,month=1,day=1),\
+                statistics=False, num_cols = 1,labels_names=['In situ data','Bayesian MAP output and Uncertainty'],ylim=[1e-2,0.31],figsize=(17,17),\
+        third_data_path = MODEL_HOME + '/VAE_model/results_VAE_VAEparam_chla',log_scale = True)
+
+
+
+plot_bbp(input_data_path = MODEL_HOME + '/results_bayes_lognormal_VAEparam',\
+                figname = MODEL_HOME + '/plot_data/bbp_lognormal_data_chla_centerd.pdf',save=True,date_init = datetime(year=2005,month=1,day=1),\
                 statistics=False, num_cols = 1,labels_names=['In situ data','Bayesian MAP output and Uncertainty'],ylim=[],figsize=(17,12),\
-         third_data_path = MODEL_HOME + '/VAE_model/results_VAE_VAEparam')
+         third_data_path = MODEL_HOME + '/VAE_model/results_VAE_VAEparam_chla',log_scale = True)
 
-
-
-plot_chla(input_data_path = MODEL_HOME + '/results_bayes_lognormal_logparam',\
-                figname = MODEL_HOME + '/plot_data/chla_lognormal_data.pdf',save=False,date_init = datetime(year=2012,month=1,day=1),\
-                statistics=False, num_cols = 1,labels_names=['In situ data','Bayesian MAP output and Uncertainty'],ylim=[],figsize=(17,12),\
-          third_data_path = MODEL_HOME + '/VAE_model/results_VAE_VAEparam')
 
 
 #plot_with_u(input_data_path = '/Users/carlos/Documents/surface_data_analisis/LastVersion/results_bayes_lognormal_logparam',\
@@ -778,7 +801,7 @@ data = data_dataframe(MODEL_HOME + '/npy_data')
 
 data['NAP'] = np.nan
 data['CDOM'] = np.nan
-second_run = read_second_run(MODEL_HOME + '/results_bayes_lognormal_logparam',include_uncertainty=True,abr='log_output')
+second_run = read_second_run(MODEL_HOME + '/results_bayes_lognormal_mcmcparam',include_uncertainty=True,abr='log_output')
 data = second_run.merge(data,how='right',on='date')
 second_run = read_second_run(MODEL_HOME + '/results_bayes_lognormal_VAEparam',include_uncertainty=True,abr='logNN_output')
 data = second_run.merge(data,how='right',on='date')
@@ -786,7 +809,7 @@ second_run = read_second_run(MODEL_HOME + '/results_bayes_lognormal_unperturbed'
 data = second_run.merge(data,how='right',on='date')
 second_run = read_second_run(MODEL_HOME + '/results_NN_NNparam',include_uncertainty=False,abr='NN_output')
 data = second_run.merge(data,how='right',on='date')
-second_run = read_second_run(MODEL_HOME + '/VAE_model/results_VAE_VAEparam',include_uncertainty=True,abr='VAE_output')
+second_run = read_second_run(MODEL_HOME + '/VAE_model/results_VAE_VAEparam_chla',include_uncertainty=True,abr='VAE_output')
 data = second_run.merge(data,how='right',on='date')
 data.sort_values(by='date',inplace=True)
 del second_run
@@ -795,7 +818,10 @@ del second_run
 #print(data['bbp_VAE_output_490'].iloc[-131],np.exp(data['chla_VAE_output'].iloc[-131]),np.exp(data['NAP_VAE_output'].iloc[-131]),np.exp(data['CDOM_VAE_output'].iloc[-131]))
 #print(data['bbp_490'].iloc[-131])
 #print(lkjsdf)
+
 plt.close()
+
+
 
 lambdas_names = ['412','442','490','510','555']
 lambdas_values = ['412.5','442.5','490','510','555']
@@ -811,18 +837,26 @@ names.append('$\\text{Chl-a } [\\text{mg}\\text{m}^{-3}]$')
 labels.append((*labels_names,*labels_names,'Generative Neural Network Output'))
 
 
-plot_parallel(data,columns,names,labels,statistics = False,histogram=False,date_init = datetime(year=2012,month=1,day=1),shadow_error = True,num_cols=1,\
-              figname = 'holi',fontsize=30,colors = 1,save=False,figsize = (20,8),indexes = indexes,ylim=[],legend_fontsize='15',s=10)
+#plot_parallel(data,columns,names,labels,statistics = False,histogram=False,date_init = datetime(year=2012,month=1,day=1),shadow_error = True,num_cols=1,\
+#              figname = 'holi',fontsize=30,colors = 1,save=False,figsize = (20,8),indexes = indexes,ylim=[],legend_fontsize='15',s=10)
 
-def p_rmse(a,b,exp=False):
+
+def p_rmse(a,b,exp=False,value=False):
     data_a = data[a].iloc[test_indexes]
     data_b = data[b].iloc[test_indexes]
     if exp == True:
-            return  '{:.6f}'.format(np.sqrt( np.nanmean(     ((np.exp(data_a) - np.exp(data_b))**2) /np.exp(data_a)**2       ) ))
+        if value == True:
+            return np.sqrt( np.nanmean(     ((np.exp(data_a) - np.exp(data_b)))**2    ) )
+        else:
+                                    
+            return  '{:.6f}'.format(np.sqrt( np.nanmean(     ((np.exp(data_a) - np.exp(data_b)))**2) ))
     else:
-        return  '{:.6f}'.format(np.sqrt( np.nanmean(((data_a - data_b)**2)/data_a**2) ))
+        if value == True:
+            return np.sqrt( np.nanmean(((data_a - data_b))**2) )
+        else:    
+            return  '{:.6f}'.format(np.sqrt( np.nanmean(((data_a - data_b))**2) ))
 
-def p_correlation(a,b,exp=False):
+def p_correlation(a,b,exp=False,value=False):
 
     data_a = data[a].iloc[test_indexes]
     data_b = data[b].iloc[test_indexes]
@@ -832,22 +866,41 @@ def p_correlation(a,b,exp=False):
     if exp == True:
         data_statistics_1 = np.exp(data_statistics_1)
         data_statistics_2 = np.exp(data_statistics_2)
+    if value==True:
+        return stats.pearsonr(data_statistics_1,data_statistics_2).statistic
         
     return '{:.5f}'.format(stats.pearsonr(data_statistics_1,data_statistics_2).statistic)
 
-for function_ in [p_rmse,p_correlation]:
+def mMAD(a,b,exp=False,value=False):
+    data_a = data[a].iloc[test_indexes]
+    data_b = data[b].iloc[test_indexes]
+    if exp == True:
+        if value == True:
+            return ( np.nanmean(     np.abs((np.exp(data_a) - np.exp(data_b))/np.exp(data_a))    ) )
+        else:
+                                    
+            return  '{:.6f}'.format(np.nanmean(     np.abs((np.exp(data_a) - np.exp(data_b))/np.exp(data_a))     ))
+    else:
+        if value == True:
+            return ( np.nanmean(np.abs((data_a - data_b)/data_a)) )
+        else:    
+            return  '{:.6f}'.format(( np.nanmean(np.abs((data_a - data_b)/data_a)) ))
+
+for function_ in [p_rmse,p_correlation,mMAD]:
 
     lambdas = ['412','442','490','510','555']
     lambdas_name = ['412.5','442.5','490','510','555']
-
+    total = np.zeros(4)
     for i,lamb in enumerate(lambdas):
         a = 'RRS_' + lamb
         b = 'output_' + lamb
+        total += np.array([function_(a,'RRS_un_' + b,value=True),function_(a,'RRS_log_' + b,value=True),function_(a,'RRS_logNN_' + b,value=True),function_(a,'RRS_VAE_' + b,value=True)])
         print(  '$R_{RS,' + lambdas_name[i] + '}$ &',function_(a,'RRS_un_' + b), '&',  function_(a,'RRS_log_' + b),'&', function_(a,'RRS_logNN_' + b),'&', function_(a,'RRS_VAE_' + b),'\\\\' )
 
     for i,lamb in enumerate(lambdas):
         a = 'kd_' + lamb
         b = 'output_' + lamb
+        total += np.array([function_(a,'kd_un_' + b,value=True),function_(a,'kd_log_' + b,value=True),function_(a,'kd_logNN_' + b,value=True),function_(a,'kd_VAE_' + b,value=True)])
         print(  '$k_{d,' + lambdas_name[i] + '}$ &',function_(a,'kd_un_' + b), '&',  function_(a,'kd_log_' + b),'&', function_(a,'kd_logNN_' + b),'&', function_(a,'kd_VAE_' + b),'\\\\' )
 
     for i,lamb in enumerate(lambdas):
@@ -855,10 +908,13 @@ for function_ in [p_rmse,p_correlation]:
             continue
         a = 'bbp_' + lamb
         b = 'output_' + lamb
+        total += np.array([function_(a,'bbp_un_' + b,value=True),function_(a,'bbp_log_' + b,value=True),function_(a,'bbp_logNN_' + b,value=True),function_(a,'bbp_VAE_' + b,value=True)])
         print(  '$b_{b,p,' + lambdas_name[i] + '}$ &',function_(a,'bbp_un_' + b), '&',  function_(a,'bbp_log_' + b),'&', function_(a,'bbp_logNN_' + b),'&', function_(a,'bbp_VAE_' + b),'\\\\' )
 
-
+    total += np.array([function_('chla','chla_un_output',exp=True,value=True), function_('chla','chla_log_output',exp=True,value=True), function_('chla','chla_logNN_output',exp=True,value=True),function_('chla','chla_VAE_output',exp=True,value=True)])
+    total /= 1
     print(  'chla &',function_('chla','chla_un_output',exp=True), '&',  function_('chla','chla_log_output',exp=True),'&', function_('chla','chla_logNN_output',exp=True),'&', function_('chla','chla_VAE_output',exp=True),'\\\\' )
+    print( 'Total &' , '&'.join(['{:.5f}'.format(t) for t in total]), '\\\\\\hline' )
     print('\n\n\n')
 
 

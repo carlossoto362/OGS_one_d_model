@@ -69,18 +69,21 @@ class customTensorData():
         """
 
         x_data = np.load(data_path + '/x_data_all.npy',allow_pickle=False)
-        self.dates = x_data[:,-1]
-        self.init = x_data[:,22:25]  ###########using lognormal distribution
-        self.init[self.init==0] = 1
-        self.init = np.log(self.init)
+
+        self.dates_all = x_data[:,-1]
+        self.init_all = x_data[:,22:25]  ###########using lognormal distribution
+        
+        self.init_column_names = ['chla_init','NAP_init','CDOM_init']
+        self.init_all[self.init_all==0] = 1
+        self.init_all = np.log(self.init_all)
 
 
         self.x_data = np.delete(x_data,[22,23,24,25],axis=1)
 
         def zenith_fit(x,a,b,c,d):
             return a*np.cos(b*x + c) + d
-        popt,pcov = scipy.optimize.curve_fit(zenith_fit,self.dates[self.x_data[:,-2]!=0],self.x_data[:,-2][self.x_data[:,-2]!=0],p0=[20,(2*np.pi)/360,0,40])
-        self.x_data[:,-2] = zenith_fit(self.dates,*popt)
+        popt,pcov = scipy.optimize.curve_fit(zenith_fit,self.dates_all[self.x_data[:,-2]!=0],self.x_data[:,-2][self.x_data[:,-2]!=0],p0=[20,(2*np.pi)/360,0,40])
+        self.x_data[:,-2] = zenith_fit(self.dates_all,*popt)
 
         self.one_dimensional = one_dimensional
 
@@ -105,7 +108,7 @@ class customTensorData():
                                'Edif_555','Edir_412','Edir_442','Edir_490','Edir_510','Edir_555','lambda_412','lambda_442',\
                                'lambda_490','lambda_510','lambda_555','zenith','PAR']
 
-        self.init_column_names = ['chla_init','NAP_init','CDOM_init']
+
         
         self.date_info = '''date indicating the number of days since the first of january of 2000.'''
 
@@ -118,7 +121,7 @@ class customTensorData():
             self.x_data = self.x_data[specific_columns]
             self.x_column_names = self.x_column_names[specific_columns]
 
-        self.len_data = len(self.dates)
+        self.len_data = len(self.dates_all)
         self.indexes = np.arange(self.len_data)
         if randomice == True:
             if type(seed) != type(None):
@@ -131,19 +134,23 @@ class customTensorData():
         self.train_indexes = self.indexes[:int(self.len_data * train_percentage)]
         self.test_indexes = self.indexes[int(self.len_data * train_percentage):]
 
-        self.which = which
+
         self.data_path = data_path
         self.transform = transform
         self.target_transform = target_transform
+        self.precision=precision
+
+        self.which = which
         self.my_indexes = self.indexes
         if self.which.lower().strip() == 'train' :
             self.my_indexes = self.train_indexes
         elif self.which.lower().strip() == 'test':
             self.my_indexes = self.test_indexes
-        self.precision=precision
         self.len_data = len(self.my_indexes)
-        self.dates = self.dates[self.my_indexes]
-        self.init = self.init[self.my_indexes]
+        self.dates = self.dates_all[self.my_indexes]
+        self.init = self.init_all[self.my_indexes]
+
+
         
         self.x_std = np.nanstd(self.x_data[self.train_indexes],axis=0)
         self.y_std = np.nanstd(self.y_data[self.train_indexes],axis=0)
@@ -174,7 +181,21 @@ class customTensorData():
             self.y_add = torch.tensor(self.y_min).to(self.precision)
             
         self.device = device
-            
+
+    def change_which(self,which,indexes = None):
+        
+        self.which = which
+        self.my_indexes = self.indexes
+        if self.which.lower().strip() == 'train' :
+            self.my_indexes = self.train_indexes
+        elif self.which.lower().strip() == 'test':
+            self.my_indexes = self.test_indexes
+        elif self.which.lower().strip() == 'custom':
+            self.my_indexes = indexes
+
+        self.len_data = len(self.my_indexes)
+        self.dates = self.dates_all[self.my_indexes]
+        self.init = self.init_all[self.my_indexes]
         
     def __len__(self):
 
@@ -321,8 +342,7 @@ def add_run_to_dataframe(second_run_path,include_uncertainty=False,abr='output',
 
 if __name__ == '__main__':
     data_path = '/Users/carlos/Documents/OGS_one_d_model/npy_data'
-    data = customTensorData(data_path=data_path,which='all',per_day = True,randomice=False)
-    print(data.y_data[:,:10])
+    data = customTensorData(data_path=data_path,which='all',per_day = False,randomice=True,seed=1853)
 
 
 

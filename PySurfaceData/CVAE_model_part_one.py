@@ -349,8 +349,8 @@ def save_cvae_first_part():
     
 if __name__ == "__main__":
 
-    explore_hyperparameters()
-    save_cvae_first_part()
+    #explore_hyperparameters()
+    #save_cvae_first_part()
     
     experiment_path = '/Users/carlos/ray_results/bohb_minimization'
     data_dir = '/Users/carlos/Documents/OGS_one_d_model/npy_data'
@@ -369,6 +369,7 @@ if __name__ == "__main__":
     betas2 = best_result.config['betas2']
     alpha = best_result.config['alpha']
     l1_regularization = best_result.config['l1_regularization']
+
 
     my_device = 'cpu'
 

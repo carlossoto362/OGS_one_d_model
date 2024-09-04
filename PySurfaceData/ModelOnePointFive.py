@@ -1397,7 +1397,7 @@ if __name__ == '__main__':
     #iterations = len(to_plot)
     #constant = read_constants(file1='./cte_lambda.csv',file2='./cst.csv')
     data = customTensorData(data_path=data_path,which='all',per_day = True,randomice=False)
-    perturbation_factors = torch.tensor(np.load(perturbation_path + '/perturbation_factors_history_CVAE_two.npy')[-1]).to(torch.float32)
+    perturbation_factors = torch.tensor(np.load(perturbation_path + '/perturbation_factors_history_CVAE_chla_centered.npy')).to(torch.float32)[:300].mean(axis=0)
     #perturbation_factors = torch.tensor(np.load(perturbation_path + '/perturbation_factors_mean_mcmc.npy')).to(torch.float32)
 
     #perturbation_factors = torch.ones(14)

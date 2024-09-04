@@ -1,33 +1,66 @@
-x_train can be load with 
-$python3.9.6
-	>>>import numpy
-	>>>x_train = numpy.load('x_train.npy')
-the columns are:
-'RRS_412','RRS_442','RRS_490','RRS_510','RRS_555','Edif_412','Edif_442','Edif_490','Edif_510','Edif_555','Edir_412','Edir_442',/
-'Edir_490','Edir_510','Edir_555','lambda_412','lambda_442','lambda_490','lambda_510','lambda_555','zenith','PAR','chla_first_run','nap_first_run','cdom_first_run','date'
 
-x_train contain the first 90 percent of the total data. 
-x_test contain the last 90 percent of the total data. 
-
-y_train can be load with
-$python3.9.6
-        >>>import numpy
-        >>>y_train = numpy.load('y_train.npy')
-the columns are:
-'chla','kd412','kd442','kd490','kd510','kd555','bbp442','bbp490','bbp555'
-
-x_data_all and y_data_all have the same columns as x_tran and y_train, but contains the train and test data. 
+This forlder contains the data used for train and evaluate the inversion method descrived in https://github.com/carlossoto362/OGS_one_d_model.
 
 
-#################################################################################################################################
+################################################################################################################################################################################
+####  x_data_all.npy contains a numpy array with the following columns:  #######################################################################################################
+################################################################################################################################################################################
 
-x_data
+'RRS_412','RRS_442','RRS_490','RRS_510','RRS_555','Edif_412','Edif_442','Edif_490','Edif_510','Edif_555','Edir_412','Edir_442','Edir_490','Edir_510','Edir_555',\
+'lambda_412','lambda_442','lambda_490','lambda_510','lambda_555','zenith','PAR','chla_init','NAP_init','CDOM_init',date
 
-has all the data available for the columns
-'RRS_412','RRS_442','RRS_490','RRS_510','RRS_555','Edif_412','Edif_442','Edif_490','Edif_510','Edif_555','Edir_412','Edir_442',/
-'Edir_490','Edir_510','Edir_555','zenith','PAR'
+where,
 
-The date is included in a different file called dates.npy, and this dosent include initial conditions. 
+satellite data (Colella et al, 2023):
+RRS is Remote Sensing Reflectance (RRS) from https://data.marine.copernicus.eu/product/OCEANCOLOUR_MED_BGC_L3_MY_009_143/services, values in sr^-1
 
-x_data_no_off is x_data, but getting rid of all the values for which zenith was zero, because is imposible for italy (latitude 40).
+data from the OASIM model  (Gregg and Casey, 2009):
+Edif is Diffracted irradiance in the upper surface of the sea (Edif) from the OASIM model, values in W/m^2.
+Edir is Direct irradiance in the upper surface of the sea (Edir) from the OASIM model, values in W/m^2.
+lambda is Wave lenghts (lambda), 412.5, 442.5,490,510 and 555, values in nm.
+Zenith is Zenith angle (zenith) from the OASIM model, values in degrees.
+PAR is Photosynthetic Available Radiation (PAR) from the OASIM, values in W/m^2.
+
+A first run, can be used as initial conditions for future runs:
+Chla_init is Concentration of Chlorophyll-a in the upper layer of the sea (chla), values in mg/m^3
+NAP_init  is Non Algal Particles (NAP), values in mg/m^3
+CDOM_init is Colored Disolved Organic Matter (CDOM), values in mg/m^3
+
+date is the number of days since the first of january of the year 2000.
+
+
+################################################################################################################################################################################
+####  y_data_all.npy contains a numpy array with the following columns:  #######################################################################################################
+################################################################################################################################################################################
+
+
+'chla','kd_412','kd_442','kd_490','kd_510','kd_555','bbp_442','bbp_490','bbp_555'
+
+ where,
+
+data from the BUSSOLE buoy, located in the Ligurian basin of the northwestern Mediterranean Sea (coordinates 7.54°E, 43.22°N) (Antoine et al., 2008). 
+
+Chla is Concentration of Chlorophyll-a in the upper layer of the sea (chla), values in mg/m^3
+kd  is Downward light attenuation coeffitient (kd), values in m^-1
+bbp is Backscattering from phytoplancton and Non Algal Particles (bbp), values in m^-1.
+
+
+################################################################################################################################################################################
+####  test_labels.npy and train_labels.npy contains numpy arrays with:  ########################################################################################################
+################################################################################################################################################################################
+
+
+For the analysis of the data, I separate it in two sets, a train set and a test set. The test set is 10% of the data selected at random from the original set. All my codes
+used the seed for selecting this test and train sets: seed = 1853.
+
+To avoid discrepancies, I also saved the labels to diferentiate between test and train data. Take in consideration, the labels will re-order the data, so be carefull, you
+can use the date column to re-arrange it to order data if you need it.
+
+
+
+
+
+
+
+
 

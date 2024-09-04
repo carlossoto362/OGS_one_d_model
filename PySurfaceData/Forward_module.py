@@ -572,7 +572,7 @@ class Forward_Model(nn.Module):
                                 x_data[:,axis,3],x_data[:,axis,4],torch.exp(parameters[:,:,0]),torch.exp(parameters[:,:,1]),torch.exp(parameters[:,:,2]),perturbations,constant = constant)
                 return Rrs.to(self.precision)
 
-######Functions to error propagation########
+######Functions for error propagation########
 def error_propagation(df,sigma):
 
     error_ = df @  sigma @ torch.transpose(df,1,2)
@@ -680,3 +680,4 @@ class OBS_loss(nn.Module):
 
         means_output = custom_array.sum(axis=1)/lens
         return means_output.mean().to(self.precision)
+
