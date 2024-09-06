@@ -175,6 +175,7 @@ class customTensorData():
         self.normilized_NN = normilized_NN
         if self.normilized_NN == 'z-score':
             self.x_normilized = (np.delete(self.x_data,[-3,-4,-5,-6,-7],axis=1) - np.delete(self.x_mean,[-3,-4,-5,-6,-7]))/np.delete(self.x_std,[-3,-4,-5,-6,-7])
+            print('holi',self.x_normilized[0])
             self.y_normilized = (self.y_data - self.y_mean)/self.y_std
             self.x_mul = torch.tensor(self.x_std).to(self.precision)
             self.y_mul = torch.tensor(self.y_std).to(self.precision)
