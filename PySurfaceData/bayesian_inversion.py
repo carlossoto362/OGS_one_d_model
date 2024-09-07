@@ -11,7 +11,7 @@ import time
 import sys
 import seaborn as sb
 import Forward_module as fm
-import read_data_module as rm
+import read_data_module as rdm
 from torch.utils.data import DataLoader
 from multiprocessing.pool import Pool
 import matplotlib.colors as mcolors
