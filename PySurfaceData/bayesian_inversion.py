@@ -1,6 +1,4 @@
 
-import Forward_module as fm
-import read_data_module as rdm
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -250,7 +248,7 @@ def track_parameters(data_path = MODEL_HOME + '/npy_data',output_path = MODEL_HO
     data = rdm.customTensorData(data_path=data_path,which='train',per_day = False,randomice=True,seed=1853,device = my_device,normilized_NN = 'scaling')
     dataloader = DataLoader(data, batch_size=data.len_data, shuffle=False)
 
-    constant = rdm.read_constants(file1='cte_lambda.csv',file2='cst.csv',my_device = my_device)
+    constant = rdm.read_constants(file1=HOME_PATH+'/cte_lambda.csv',file2=HOME_PATH+'/cst.csv',my_device = my_device)
     
     x_a = torch.zeros(3)
     s_a = torch.eye(3)*100
@@ -315,6 +313,8 @@ def track_parameters(data_path = MODEL_HOME + '/npy_data',output_path = MODEL_HO
 
     if save == True:
         np.save(output_path + '/perturbation_factors_history_AM_test.npy',to_plot )
+    else:
+        return to_plot
 
 
 def track_alphas(output_path = MODEL_HOME + '/results_bayes_lognormal_logparam/alphas',save=False):
