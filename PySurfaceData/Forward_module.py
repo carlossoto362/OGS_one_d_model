@@ -7,7 +7,7 @@ import os
 import sys
 
 if 'OGS_ONE_D_HOME_PATH' in os.environ:
-    HOME_PATH = os.environ["OGS_ONE_D_HOME_PATH"]
+    HOME_PATH = MODEL_HOME = os.environ["OGS_ONE_D_HOME_PATH"]
 else:
     
     print("Missing local variable OGS_ONE_D_HOME_PATH. \nPlease add it with '$:export OGS_ONE_D_HOME_PATH=path/to/ogs/one/d/model'.")

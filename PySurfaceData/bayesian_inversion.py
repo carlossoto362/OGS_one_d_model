@@ -21,7 +21,12 @@ from torch import nn
 from CVAE_model_part_two import NN_second_layer
 
 
-MODEL_HOME = '/Users/carlos/Documents/OGS_one_d_model'
+if 'OGS_ONE_D_HOME_PATH' in os.environ:
+    HOME_PATH = MODEL_HOME = os.environ["OGS_ONE_D_HOME_PATH"]
+else:
+    
+    print("Missing local variable OGS_ONE_D_HOME_PATH. \nPlease add it with '$:export OGS_ONE_D_HOME_PATH=path/to/ogs/one/d/model'.")
+    sys.exit()
 
 def train_loop(data_i,model,loss_fn,optimizer,N,kind='all',num_days=1,my_device = 'cpu',constant = None,perturbation_factors_ = None, scheduler = True):
     """
