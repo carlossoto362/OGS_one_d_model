@@ -665,6 +665,14 @@ class RRS_loss(nn.Module):
 
     def __init__(self,x_a,s_a,s_e,precision = torch.float32,num_days=1,my_device = 'cpu'):
         super(RRS_loss, self).__init__()
+        """
+        Class to evaluate the loss function RRS_loss = -2log(p(z|x,y)), minus the log posterior distribution of the latent variable z=(chla,nap,cdom). 
+        p(z|x,y) uses a gaussian likelihood, and a gaussian prior. 
+        parameters:
+          x_a: mean value of the prior values for chla, nap and cdom, with dimension (3).
+          s_a: covariance matrix of the prior for chla, nap and cdom, dimension (3,3).
+          s_e: covariance matrix of RRS. Dimension (5,5).
+        """
         self.x_a = torch.stack([x_a for _ in range(num_days)]).to(my_device)
         self.s_a = s_a.to(my_device)
         self.s_e = s_e.to(my_device)

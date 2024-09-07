@@ -1,6 +1,4 @@
 
-import Forward_module as fm
-import read_data_module as rdm
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
