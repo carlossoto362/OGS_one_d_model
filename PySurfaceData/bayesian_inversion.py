@@ -237,7 +237,7 @@ def initial_conditions_nn(F_model,data,constant,data_path,which,randomice = Fals
     data.one_dimensional = False
 
 
-def track_parameters(data_path = MODEL_HOME + '/npy_data',output_path = MODEL_HOME + '/OGS_one_d_model/plot_data',iterations=101,save = False ):
+def track_parameters(data_path = MODEL_HOME + '/npy_data',output_path = MODEL_HOME + '/OGS_one_d_model/plot_data',iterations=101,save = False, which = 'train', seed = 1853 ):
     """
     Performes Alternate Minimization between the active constituents and the parameters of the model. 
     """
@@ -245,7 +245,7 @@ def track_parameters(data_path = MODEL_HOME + '/npy_data',output_path = MODEL_HO
     global_init_time = time.time()
     
     my_device = 'cpu'
-    data = rdm.customTensorData(data_path=data_path,which='train',per_day = False,randomice=True,seed=1853,device = my_device,normilized_NN = 'scaling')
+    data = rdm.customTensorData(data_path=data_path,which=which,per_day = False,randomice=True,seed=seed,device = my_device,normilized_NN = 'scaling')
     dataloader = DataLoader(data, batch_size=data.len_data, shuffle=False)
 
     constant = rdm.read_constants(file1=HOME_PATH+'/cte_lambda.csv',file2=HOME_PATH+'/cst.csv',my_device = my_device)
