@@ -3,6 +3,17 @@
 import numpy as np
 import torch
 from torch import nn
+import os
+import sys
+
+if 'OGS_ONE_D_HOME_PATH' in os.environ:
+    HOME_PATH = os.environ["OGS_ONE_D_HOME_PATH"]
+else:
+    
+    print("Missing local variable OGS_ONE_D_HOME_PATH. \nPlease add it with '$:export OGS_ONE_D_HOME_PATH=path/to/ogs/one/d/model'.")
+    sys.exit()
+
+    
 ###################################################################################################################################################################################################
 ############################################################################FUNCTIONS NEEDED TO DEFINE THE FORWARD MODEL###########################################################################
 ###################################################################################################################################################################################################
@@ -681,3 +692,5 @@ class OBS_loss(nn.Module):
         means_output = custom_array.sum(axis=1)/lens
         return means_output.mean().to(self.precision)
 
+if __name__ == "__main__":
+    pass

@@ -349,6 +349,13 @@ def save_cvae_first_part():
     
 if __name__ == "__main__":
 
+    if 'OGS_ONE_D_HOME_PATH' in os.environ:
+        HOME_PATH = os.environ["OGS_ONE_D_HOME_PATH"]
+    else:
+        
+        print("Missing local variable OGS_ONE_D_HOME_PATH. \nPlease add it with '$:export OGS_ONE_D_HOME_PATH=path/to/ogs/one/d/model'.")
+        sys.exit()
+
     #explore_hyperparameters()
     #save_cvae_first_part()
     

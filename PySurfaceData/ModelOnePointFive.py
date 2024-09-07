@@ -20,7 +20,6 @@ from torchvision.transforms import ToTensor
 from torch.utils.data import DataLoader
 from datetime import datetime, timedelta
 import pandas as pd
-import os
 import scipy
 from scipy import stats
 import time
@@ -31,14 +30,22 @@ import torch.distributed as dist
 import sys
 from matplotlib import ticker
 from torch.distributions.multivariate_normal import MultivariateNormal
+import os
+import sys
 
 import warnings
 
 
-
+if 'OGS_ONE_D_HOME_PATH' in os.environ:
+    HOME_PATH = os.environ["OGS_ONE_D_HOME_PATH"]
+else:
+    
+    print("Missing local variable OGS_ONE_D_HOME_PATH. \nPlease add it with '$:export OGS_ONE_D_HOME_PATH=path/to/ogs/one/d/model'.")
+    sys.exit()
+        
 class customTensorData():
 
-    def __init__(self,data_path='./npy_data',transform=None,target_transform=None,train_percentage = 0.9,from_where = 'left',randomice=False,specific_columns=None,which='train',\
+    def __init__(self,data_path=HOME_PATH+'/npy_data',transform=None,target_transform=None,train_percentage = 0.9,from_where = 'left',randomice=False,specific_columns=None,which='train',\
                  seed=None,per_day=True,precision=torch.float32,one_dimensional = False,normilized_NN=True):
         """
         Class used to read the data, x_data is the imput data, y_data is the spected output of the model. It can be the Remote Sensing Reflectance or in-situ messuraments.
@@ -216,7 +223,7 @@ class customTensorData():
 
 
 
-def read_constants(file1='./cte_lambda.csv',file2='./cst.csv',tensor = True,my_device = 'cpu'):
+def read_constants(file1=HOME_PATH+'/cte_lambda.csv',file2=HOME_PATH+'/cst.csv',tensor = True,my_device = 'cpu'):
     """
     function that reads the constants stored in file1 and file2. 
     file1 has the constants that are dependent on lambda, is a csv with the columns
@@ -1102,7 +1109,7 @@ def train_loop(data_i,model,loss_fn,optimizer,N,kind='all',num_days=1,my_device 
 
 def initial_conditions_nn(F_model,constant,data_path,which,randomice = False,seed = 1):
 
-    load_path = '/Users/carlos/Documents/OGS_one_d_model/VAE_model'
+    load_path = HOME_PATH+'/VAE_model'
     data_nn = customTensorData(data_path=data_path,which=which,per_day = False,randomice=randomice,one_dimensional = True,seed = seed)
     x_mean = torch.load(load_path + '/x_mean.pt')
     y_mean = torch.load(load_path + '/y_mean.pt')
@@ -1206,19 +1213,19 @@ def test_model(test_data_,test_X,test_Y,test_Y_nan,x_a,s_a,s_e,constant,test_num
     test_loss_value = parameter_loss(test_Y,test_output,test_Y_nan)
     return test_loss_value
     
-def track_parameters(data_path = '/Users/carlos/Documents/OGS_one_d_model/npy_data/',output_path = '/Users/carlos/Documents/OGS_one_d_model/plot_data',iterations=101 ):
+def track_parameters(data_path = HOME_PATH + '/npy_data/',output_path = HOME_PATH+'/plot_data',iterations=101 ):
     global_init_time = time.time()
     
     data = customTensorData(data_path=data_path,which='train',per_day = False,randomice=True,seed=1853)
     
-    test_data = customTensorData(data_path='./npy_data',which='test',per_day = False,randomice=True,seed=1853)
+    test_data = customTensorData(data_path=HOME_PATH+'/npy_data',which='test',per_day = False,randomice=True,seed=1853)
     test_dataloader = DataLoader(test_data, batch_size=test_data.len_data, shuffle=False)
 
     #mps_device = torch.device("mps")
     my_device = 'cpu'
 
     
-    constant = read_constants(file1='cte_lambda.csv',file2='cst.csv',my_device = my_device)
+    constant = read_constants(file1=HOME_PATH+'cte_lambda.csv',file2=HOME_PATH+'cst.csv',my_device = my_device)
     
     x_a = torch.zeros(3)
     s_a = torch.eye(3)*100
@@ -1296,9 +1303,9 @@ def track_parameters(data_path = '/Users/carlos/Documents/OGS_one_d_model/npy_da
     np.save(output_path + '/train_loss_lognormal.npy',np.array(p_ls) )
 
 
-def track_alphas(output_path = '/Users/carlos/Documents/OGS_one_d_model/results_bayes_lognormal_logparam/alphas'):
-    perturbation_path = '/Users/carlos/Documents/OGS_one_d_model/plot_data/perturbation_factors/'
-    data_path = '/Users/carlos/Documents/OGS_one_d_model/npy_data'
+def track_alphas(output_path = HOME_PATH + '/results_bayes_lognormal_logparam/alphas'):
+    perturbation_path = HOME_PATH + '/plot_data/perturbation_factors/'
+    data_path = HOME_PATH + '/npy_data'
 
     data = customTensorData(data_path=data_path,which='all',per_day = True,randomice=False)
     perturbation_factors = torch.tensor(np.load(perturbation_path + '/perturbation_factors_history_lognormal.npy')[-1]).to(torch.float32)
@@ -1332,9 +1339,9 @@ def track_alphas(output_path = '/Users/carlos/Documents/OGS_one_d_model/results_
 
 def test_diim():
 
-    perturbation_path = '/Users/carlos/Documents/OGS_one_d_model/plot_data/perturbation_factors'
-    data_path = '/Users/carlos/Documents/OGS_one_d_model/npy_data'
-    nn_path = '/Users/carlos/Documents/OGS_one_d_model/VAE_model'
+    perturbation_path = HOME_PATH+'/plot_data/perturbation_factors'
+    data_path = HOME_PATH+'/npy_data'
+    nn_path = HOME_PATH + '/VAE_model'
     data = customTensorData(data_path=data_path,which='test',per_day = True,randomice=False)
     perturbation_factors = torch.tensor(np.load(perturbation_path + '/perturbation_factors_history_VAE.npy')[-1]).to(torch.float32)
 
@@ -1371,18 +1378,20 @@ def test_diim():
         times[i] = last_i
         print(times[i])
     #np.save('LastVersion/time_experiments/seeds',seeds)
-    np.save('/Users/carlos/Documents/OGS_one_d_model/time_experiments/times_with_initialization',times)
+    np.save(HOME_PATH+'/time_experiments/times_with_initialization',times)
     print(np.mean(times))
     
     
 if __name__ == '__main__':
 
+
+    
     #test_diim()
     #print(asdfasdf)
     
-    perturbation_path = '/Users/carlos/Documents/OGS_one_d_model/plot_data/perturbation_factors'
-    data_path = '/Users/carlos/Documents/OGS_one_d_model/npy_data'
-    output_path = '/Users/carlos/Documents/OGS_one_d_model/results_bayes_lognormal_logparam/alphas'
+    perturbation_path = HOME_PATH + '/plot_data/perturbation_factors'
+    data_path = HOME_PATH + '/npy_data'
+    output_path = HOME_PATH + '/results_bayes_lognormal_logparam/alphas'
     #track_alphas(output_path = output_path)
     #track_parameters(iterations=500)
     #print(asdfadsf)
@@ -1405,7 +1414,7 @@ if __name__ == '__main__':
     
     #mps_device = torch.device("mps")
     my_device = 'cpu'
-    constant = read_constants(file1='cte_lambda.csv',file2='cst.csv',my_device = my_device)
+    constant = read_constants(file1=HOME_PATH+'/cte_lambda.csv',file2=HOME_PATH+'/cst.csv',my_device = my_device)
 
     lr = 0.029853826189179603
     x_a = torch.zeros(3)
@@ -1423,7 +1432,7 @@ if __name__ == '__main__':
     output = train_loop(next(iter(dataloader)),model,loss,optimizer,4000,kind='all',\
                         num_days=batch_size,constant = constant,perturbation_factors_ = perturbation_factors, scheduler = True)
     
-    output_path = '/Users/carlos/Documents/OGS_one_d_model/results_bayes_lognormal_VAEparam'
+    output_path = HOME_PATH + '/results_bayes_lognormal_VAEparam'
     np.save(output_path + '/X_hat.npy',output['X_hat'])
     np.save(output_path + '/kd_hat.npy',output['kd_hat'])
     np.save(output_path + '/bbp_hat.npy',output['bbp_hat'])

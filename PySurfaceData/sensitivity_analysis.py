@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import pandas as pd
-import os
 import scipy
 from scipy import stats
 from torch.utils.data import DataLoader,random_split
@@ -19,9 +18,15 @@ from torch.utils.data import DataLoader
 from multiprocessing.pool import Pool
 import matplotlib.colors as mcolors
 from CVAE_model_part_two import NN_second_layer
+import os
+import sys
 
-MODEL_HOME = '/Users/carlos/Documents/OGS_one_d_model'
-
+if 'OGS_ONE_D_HOME_PATH' in os.environ:
+    HOME_PATH = os.environ["OGS_ONE_D_HOME_PATH"]
+else:
+    
+    print("Missing local variable OGS_ONE_D_HOME_PATH. \nPlease add it with '$:export OGS_ONE_D_HOME_PATH=path/to/ogs/one/d/model'.")
+    sys.exit()
 
 def compute_jacobians(Forward_Model_, X, chla_hat_mean,perturbation_factors, constant = None):
     parameters_eval = perturbation_factors
@@ -487,8 +492,8 @@ def mcmc():
 
 
 if __name__ == '__main__':
-    mcmc()
-    print(asdfasdf)
+
+    #mcmc()
 
 
     

@@ -40,6 +40,12 @@ import read_data_module as rdm
 from CVAE_model_part_one import NN_first_layer
 from torch.linalg import inv 
 
+if 'OGS_ONE_D_HOME_PATH' in os.environ:
+    HOME_PATH = os.environ["OGS_ONE_D_HOME_PATH"]
+else:
+        
+    print("Missing local variable OGS_ONE_D_HOME_PATH. \nPlease add it with '$:export OGS_ONE_D_HOME_PATH=path/to/ogs/one/d/model'.")
+    sys.exit()
 
 class NN_second_layer(nn.Module):
 
@@ -532,14 +538,14 @@ def save_var_uncertainties(Forward_Model, X, chla_hat_mean, covariance_matrix,rr
     
 if __name__ == '__main__':
 
+
+
     #explore_hyperparameters()
 
     #save_cvae_first_part()
 
     
-    
-    experiment_path = '/Users/carlos/ray_results/bohb_minimization_part2'
-    data_dir = '/Users/carlos/Documents/OGS_one_d_model/npy_data'
+    data_dir = HOME_PATH + '/npy_data'
         
     #restored_tuner = tune.Tuner.restore(experiment_path, trainable=partial(train_cifar, data_dir=data_dir))
     #result_grid = restored_tuner.get_results()
@@ -547,7 +553,7 @@ if __name__ == '__main__':
 
         
     #torch.save(best_result.config,'/Users/carlos/Documents/OGS_one_d_model/VAE_model/model_second_part_final_config.pt')
-    best_result_config = torch.load('/Users/carlos/Documents/OGS_one_d_model/VAE_model/model_second_part_final_config.pt')
+    best_result_config = torch.load(HOME_PATH + '/VAE_model/model_second_part_final_config.pt')
 
     batch_size = int(best_result_config['batch_size'])
     number_hiden_layers_mean = best_result_config['number_hiden_layers_mean']
@@ -566,7 +572,7 @@ if __name__ == '__main__':
 
     my_device = 'cpu'
 
-    constant = rdm.read_constants(file1=data_dir + '/../cte_lambda.csv',file2=data_dir+'/../cst.csv',my_device = my_device)
+    constant = rdm.read_constants(file1=HOME_PATH + '/cte_lambda.csv',file2=HOME_PATH+'/cst.csv',my_device = my_device)
     data = rdm.customTensorData(data_path=data_dir,which='all',per_day = False,randomice=False,one_dimensional = True,seed = 1853,device=my_device,normilized_NN='scaling')
 
     dataloader = DataLoader(data, batch_size=len(data.x_data), shuffle=False)
@@ -575,9 +581,9 @@ if __name__ == '__main__':
                            dim_hiden_layers_mean = dim_hiden_layers_mean,alpha_mean=alpha_mean,dim_last_hiden_layer_mean = dim_last_hiden_layer_mean,\
                            number_hiden_layers_cov = number_hiden_layers_cov,\
                            dim_hiden_layers_cov = dim_hiden_layers_cov,alpha_cov=alpha_cov,dim_last_hiden_layer_cov = dim_last_hiden_layer_cov,x_mul=data.x_mul,x_add=data.x_add,\
-                           y_mul=data.y_mul,y_add=data.y_add,constant = constant,model_dir = '/Users/carlos/Documents/OGS_one_d_model/VAE_model').to(my_device)
+                           y_mul=data.y_mul,y_add=data.y_add,constant = constant,model_dir = HOME_PATH + '/VAE_model').to(my_device)
 
-    model.load_state_dict(torch.load(data_dir+'/../VAE_model/model_second_part_chla_centered.pt'))
+    model.load_state_dict(torch.load(HOME_PATH + '/VAE_model/model_second_part_chla_centered.pt'))
     X,Y = next(iter(dataloader))
     
     z_hat,cov_z,mu_z,kd_hat,bbp_hat,rrs_hat = model(X)
@@ -592,7 +598,7 @@ if __name__ == '__main__':
     rrs_hat = rrs_hat * data.x_mul[:5] + data.x_add[:5]
     X = model.rearange_RRS(X)
         
-    save_var_uncertainties(model.Forward_Model,X,mu_z,cov_z,rrs_hat,constant=constant,dates = data.dates,save_path ='/Users/carlos/Documents/OGS_one_d_model/VAE_model/results_VAE_VAEparam_chla')
+    save_var_uncertainties(model.Forward_Model,X,mu_z,cov_z,rrs_hat,constant=constant,dates = data.dates,save_path =HOME_PATH + '/VAE_model/results_VAE_VAEparam_chla')
     
     
 

@@ -5,6 +5,8 @@ import numpy as np
 import scipy
 import pandas as pd
 from scipy import stats
+import os
+import sys
 
 """
 classes:
@@ -15,6 +17,14 @@ functions:
  transform_to_data_dataframe()
  add_run_to_dataframe()
 """
+
+if 'OGS_ONE_D_HOME_PATH' in os.environ:
+    HOME_PATH = os.environ["OGS_ONE_D_HOME_PATH"]
+else:
+    
+    print("Missing local variable OGS_ONE_D_HOME_PATH. \nPlease add it with '$:export OGS_ONE_D_HOME_PATH=path/to/ogs/one/d/model'.")
+    sys.exit()
+
 
 class customTensorData():
 
@@ -174,7 +184,7 @@ class customTensorData():
 
         self.normilized_NN = normilized_NN
         if self.normilized_NN == 'z-score':
-            self.x_normilized = (self.x_data - self.x_mean)/selfx_std
+            self.x_normilized = (self.x_data - self.x_mean)/self.x_std
             self.y_normilized = (self.y_data - self.y_mean)/self.y_std
             self.x_mul = torch.tensor(self.x_std).to(self.precision)
             self.y_mul = torch.tensor(self.y_std).to(self.precision)
@@ -351,7 +361,10 @@ def add_run_to_dataframe(second_run_path,include_uncertainty=False,abr='output',
     return second_run_output
 
 if __name__ == '__main__':
-    data_path = '/Users/carlos/Documents/OGS_one_d_model/npy_data'
+
+
+    
+    data_path = HOME_PATH + '/npy_data'
     data = customTensorData(data_path=data_path,which='all',per_day = False,randomice=True,seed=1853)
 
 
