@@ -247,7 +247,7 @@ def initial_conditions_nn(F_model,data,constant,data_path,which,randomice = Fals
     data.one_dimensional = False
 
 
-def track_parameters(data_path = MODEL_HOME + '/npy_data',output_path = MODEL_HOME + '/OGS_one_d_model/plot_data',iterations=101,save = False, which = 'train', seed = 1853 ):
+def track_parameters(data_path = MODEL_HOME + '/npy_data',output_path = MODEL_HOME + '/OGS_one_d_model/plot_data',iterations=101,save = False, which = 'train', seed = 1853, name = 'perturbation_factors_history.npy' ):
     """
     Performes Alternate Minimization between the active constituents and the parameters of the model.
 
@@ -337,7 +337,7 @@ def track_parameters(data_path = MODEL_HOME + '/npy_data',output_path = MODEL_HO
     to_plot = p_past_parameters.clone().detach().numpy()
 
     if save == True:
-        np.save(output_path + '/perturbation_factors_history_AM_test.npy',to_plot )
+        np.save(output_path + '/' + name,to_plot )
     else:
         return to_plot
 
