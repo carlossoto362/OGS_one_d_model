@@ -30,13 +30,13 @@ def train_loop(data_i,model,loss_fn,optimizer,N,kind='all',num_days=1,my_device 
     """
     The train loop evaluates the Remote Sensing Reflectance RRS for each wavelength >>>pred=model(data_i), evaluates the loss function
     >>>loss=loss_fn(pred,y), evaluates the gradient of RRS with respect to the parameters, >>>loss.backward(), modifies the value of the parameters according to the optimizer criterium, >>>optimizer.step(),
-    sets the gradient of RRS to cero. After this, compute the approximate covariance matrix of the active constituents to, finally, compute kd and bbp with uncertainty. 
+    sets the gradient of RRS to zero. After this, compute the approximate covariance matrix of the active constituents to, finally, compute kd and bbp with uncertainty. 
     
-    parameters:
+    Parameters:
 
-      data_i: tupple of datasets (X,Y), X is the input data E_dir(lambda), E_dif(lambda), lambda, zenith(lambda) and PAR(lambda), a tensor of dimension (*,5,5), where * stands for the number of days evaluated. Y is the satellite data RRS(lambda), a tensor of dimension (*,5).
+      data_i: tuple of datasets (X,Y), X is the input data E_dir(lambda), E_dif(lambda), lambda, zenith(lambda) and PAR(lambda), a tensor of dimension (*,5,5), where * stands for the number of days evaluated. Y is the satellite data RRS(lambda), a tensor of dimension (*,5).
      
-      model: RRS. Is a pytorch object, with chparam as learneable parameters of dimension $(*,1,3)$, a variable called perturbation_factors_\
+      model: RRS. Is a pytorch object, with chparam as learnable parameters of dimension $(*,1,3)$, a variable called perturbation_factors_\
              of dimension 14, and a forward function that returns the predicted RRS for the five values of lambda 412.5, 442.5, 490, 510 and 555. 
       
       loss_fn: The RRS_loss object, is an object with the variables 
@@ -52,11 +52,21 @@ def train_loop(data_i,model,loss_fn,optimizer,N,kind='all',num_days=1,my_device 
 
       kind: can be "all", "parameter_estimation" or "rrs". 
             if kind = "all", train_loop returns a dictionary with {'X_hat':X_hat,'kd_hat':kd_hat,'bbp_hat':bbp_hat,'RRS_hat':last_rrs}, where X_hat is the predicted\
-            chlorophyll, NAP and CDOM, kd_hat is the predicted down light atenuation coeffitient, bbp_hat is the predicted backward scattering and RRS is \
+            chlorophyll, NAP and CDOM, kd_hat is the predicted down light attenuation coefficient, bbp_hat is the predicted backward scattering and RRS is \
             the predicted Remote Sensing Reflectance. All with uncertainty.  Example: X_hat[0] = [X_hat_412.5[0],X_hat_412_delta[0],X_hat_442[0],X_hat_442_delta[0],...,X_hat_555_delta[0]].
-            If kind = "parameter_estimation", train_loop returns a (*,9) tensor, with the first element being the prediciton of chlorophyll,\
+            If kind = "parameter_estimation", train_loop returns a (*,9) tensor, with the first element being the prediction of chlorophyll,\
             the next 5 the predictions for kd, and the last three, the predictions for bbp. 
             If kind = "rrs", train_loop will return the prediction of RRS, the history of predictions for chlorophyll, NAP and CDOM, and the history of loss_functions, for all the iterations on the loop. 
+
+      num_days: The number of days for which the inversion is being performed. Usually is the first dimension of X or Y in data_i. Default is equal to 1. 
+      
+      my_device: torch devise, could be 'cpu', 'cuda', 'mps', etc. 
+      
+      constant: Set of constants for the model. Is a dictionary, necessary for running the forward model. See PySurfaceData/read_data_module.py.
+
+      perturbation factors_: torch tensor of dimension (14). Numbers that multiply the constants of the forward model. 
+
+      Scheduler: Defines if use a scheduler in the Adam Algorithm, it can accelerate the convergence of the algorithm. 
     """
 
     
@@ -239,7 +249,22 @@ def initial_conditions_nn(F_model,data,constant,data_path,which,randomice = Fals
 
 def track_parameters(data_path = MODEL_HOME + '/npy_data',output_path = MODEL_HOME + '/OGS_one_d_model/plot_data',iterations=101,save = False, which = 'train', seed = 1853 ):
     """
-    Performes Alternate Minimization between the active constituents and the parameters of the model. 
+    Performes Alternate Minimization between the active constituents and the parameters of the model.
+
+        Parameters:
+
+        data_path: path where the data is stored. 
+        
+        output_path: if save is True, then the final perturbation factors history is stored in output_path. 
+
+        iterations: Number of iterations to perform alternate minimization. 
+    
+        save: If the perturbation factors history gets stored. 
+
+        which: which set of data to used in the alternate minimization. Can be 'train', which is 90% of the data, or 'test' which is 10% of it. The data is selected randomly. 
+
+        seed: For reproducibility, the seed used to select the data set. 
+
     """
     
     global_init_time = time.time()

@@ -1,0 +1,6 @@
+Within the New Copernicus Capability for Trophic Ocean Networks (NECCTON) project,
+ we aim to improve the current data assimilation system by developing a method for accurately
+ estimating marine optical constituents from satellite derived Remote Sensing Reflectance.
+
+ In the next modules, we present a functional version of the codes used for the project.
+ The complete code can be found in https://github.com/carlossoto362/OGS_one_d_model.

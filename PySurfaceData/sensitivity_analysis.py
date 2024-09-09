@@ -2,6 +2,8 @@
 
 import Forward_module as fm
 import read_data_module as rdm
+import matplotlib as mpl
+mpl.use('TkAgg')
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -10,12 +12,11 @@ import scipy
 from scipy import stats
 from torch.utils.data import DataLoader,random_split
 import time
-import sys
 import seaborn as sb
 from Forward_module import evaluate_model_class,Forward_Model,RRS_loss,OBS_loss
 from read_data_module import customTensorData ,read_constants
 from torch.utils.data import DataLoader
-from multiprocessing.pool import Pool
+from multiprocess.pool import Pool
 import matplotlib.colors as mcolors
 from CVAE_model_part_two import NN_second_layer
 import os
@@ -59,9 +60,11 @@ def sensitivity_boxplot(jacobian_rrs,jacobian_kd,jacobian_bbp,rrs_hat,kd_hat,bbp
         jacobian_bbp = np.mean(jacobian_bbp/normalization,axis=1)
 
 
-        xticks = ['${a_{phy}}$','$\delta_{b_{phy,T}}$','${b_{phy,Int}}$','${b_{b,phy,T}}$','${b_{b,phy,Int}}$','${d_{\\text{CDOM}}}$','${S_{\\text{CDOM}}}$','${Q_a}$','${Q_b}$',\
-                  '${\Theta^{\\text{min}}_{\\text{chla}}}$','${\Theta^{\\text{0}}_{\\text{chla}}}$',\
-                  '${\\beta}$','${\sigma}$','${b_{b,\\text{NAP}}}$']
+        xticks = ['${a_{phy}}$','$\delta_{b_{phy,T}}$','${b_{phy,Int}}$','${b_{b,phy,T}}$','${b_{b,phy,Int}}$','${d_{\mathrm{CDOM}}}$','${S_{\mathrm{CDOM}}}$','${Q_a}$','${Q_b}$',\
+                  '${\Theta^{\mathrm{min}}_{\mathrm{chla}}}$','${\Theta^{\mathrm{0}}_{\mathrm{chla}}}$',\
+                  '${\\beta}$','${\sigma}$','${b_{b,\mathrm{NAP}}}$']
+
+
     
         jacobian_rrs_dataframe = pd.DataFrame()
         for i in range(14):
@@ -78,34 +81,41 @@ def sensitivity_boxplot(jacobian_rrs,jacobian_kd,jacobian_bbp,rrs_hat,kd_hat,bbp
 
         fig, axs = plt.subplots(ncols=1, nrows=3, figsize=(15*0.7, 9*0.65),
                                 layout="constrained")
-        sb.boxplot(data=jacobian_rrs_dataframe,ax=axs[0],whis=(10, 90),color='#377eb8',fliersize=1,widths=0.3)
-        sb.boxplot(data=jacobian_kd_dataframe,ax=axs[1],whis=(10, 90),color='#377eb8',fliersize=1,widths=0.3)
-        sb.boxplot(data=jacobian_bbp_dataframe,ax=axs[2],whis=(10, 90),color='#377eb8',fliersize=1,widths=0.3)
+        sb.boxplot(data=jacobian_rrs_dataframe,ax=axs[0],whis=(10, 90),color='#89b7dc',fliersize=1,widths=0.3,saturation=1,linewidth=1.5)
+        sb.boxplot(data=jacobian_kd_dataframe,ax=axs[1],whis=(10, 90),color='#89b7dc',fliersize=1,widths=0.3,saturation=1)
+        sb.boxplot(data=jacobian_bbp_dataframe,ax=axs[2],whis=(10, 90),color='#89b7dc',fliersize=1,widths=0.3,saturation=1)
     
     
 
         axs[0].axes.xaxis.set_ticklabels([])
-        axs[0].set_ylabel('$ \partial( \log{ R_{RS} }) \partial (\log{\delta_i})^{-1} $',fontsize=15)
-        axs[0].tick_params(axis='y', labelsize=15)
+        axs[0].set_ylabel('$ \partial( \log{ R_{RS} }) \partial (\log{\delta_i})^{-1} $',fontsize=16)
+        axs[0].tick_params(axis='y', labelsize=14)
         axs[0].text(1-0.04,0.9,'(a)',transform = axs[0].transAxes,fontsize=15)
-        axs[0].set_ylim(*lims)
         axs[0].set_yscale('symlog')
-
+        yticks = np.linspace(lims[0],lims[1]+1,12)
+        axs[0].set_yticks(yticks,labels=['{:.1e}'.format(yticks[i]) if i in [0,1,2,8] else '' for i in range(len(yticks))])
+        axs[0].yaxis.grid(True,alpha=0.4)
+        axs[0].set_ylim(*lims)
         
         axs[1].axes.xaxis.set_ticklabels([])
-        axs[1].set_ylabel('$ \partial (\log{ kd }) \partial (\log{\delta_i})^{-1} $',fontsize=15)
-        axs[1].tick_params(axis='y', labelsize=15)
+        axs[1].set_ylabel('$ \partial (\log{ kd }) \partial (\log{\delta_i})^{-1} $',fontsize=16)
+        axs[1].tick_params(axis='y', labelsize=14)
         axs[1].text(1-0.04,0.9,'(b)',transform = axs[1].transAxes,fontsize=15)
-        axs[1].set_ylim(*lims)
         axs[1].set_yscale('symlog')
+        axs[1].set_yticks(yticks,labels=['{:.1e}'.format(yticks[i]) if i in [0,1,2,8] else '' for i in range(len(yticks))])
+        axs[1].yaxis.grid(True,alpha=0.4)
+        axs[1].set_ylim(*lims)
     
-        axs[2].tick_params(axis='x', labelsize=15)
-        axs[2].set_ylabel('$ \partial (\log{ b_{b,p} }) \partial (\log{\delta_i})^{-1} $',fontsize=15)
-        axs[2].tick_params(axis='y', labelsize=15)
+        axs[2].tick_params(axis='x', labelsize=14)
+        axs[2].set_ylabel('$ \partial (\log{ b_{b,p} }) \partial (\log{\delta_i})^{-1} $',fontsize=16)
+        axs[2].tick_params(axis='y', labelsize=14)
         axs[2].text(1-0.04,0.9,'(c)',transform = axs[2].transAxes,fontsize=15)
-        axs[2].set_ylim(*lims)
         axs[2].set_yscale('symlog')
+        axs[2].set_yticks(yticks,labels=['{:.1e}'.format(yticks[i]) if i in [0,1,2,8] else '' for i in range(len(yticks))])
+        axs[2].yaxis.grid(True,alpha=0.4)
+        axs[2].set_ylim(*lims)
         axs[2].text(-0.05,-0.15,'$\delta_i,i= $',transform = axs[2].transAxes,fontsize=15)
+                
         
         plt.show()
 
@@ -255,12 +265,13 @@ def plot_constants_2(perturbation_path = MODEL_HOME + '/plot_data/perturbation_f
         ax_.plot(lambdas,storical_absortion_ph_NN,color = '#377eb8',label = 'SGVB')
         ax_.plot(lambdas,original_values,'--',color = 'black', label = 'Original values',alpha=0.5)
         ax_.set_xticks(lambdas,['412.5','442.5','490','510','555'])
-        ax_.set_xlabel('Wavelenght [nm]',fontsize=15)
-        ax_.set_ylabel('$a_{phy}$ $[\\text{m}^2\\text{(mgChl)}^{-1}]$',fontsize=15)
-        ax_.tick_params(axis='y', labelsize=15)
-        ax_.tick_params(axis='x', labelsize=15)
+        ax_.set_xlabel('Wavelenght [nm]',fontsize=20)
+        ax_.set_ylabel('$a_{phy}$ $[\mathrm{m}^2\mathrm{(mgChl)}^{-1}]$',fontsize=20)
+        ax_.tick_params(axis='y', labelsize=20)
+        ax_.tick_params(axis='x', labelsize=20)
 
-        ax_.fill_between(lambdas, storical_absortion_ph_mean - storical_absortion_ph_std, storical_absortion_ph_mean + storical_absortion_ph_std,color='gray',zorder = 0.1,alpha=0.8,label='63% confidence interval')
+        ax_.fill_between(lambdas, storical_absortion_ph_mean - storical_absortion_ph_std, \
+                         storical_absortion_ph_mean + storical_absortion_ph_std,color='#bfbfbf',zorder = 0.1,alpha=0.8,label='63% confidence interval')
         ax_.plot(lambdas,storical_absortion_ph_mean,color = 'gray',label = 'mcmc mean value')
     
 
@@ -282,12 +293,13 @@ def plot_constants_2(perturbation_path = MODEL_HOME + '/plot_data/perturbation_f
         ax_.plot(lambdas,storical_scattering_ph_NN,color = '#377eb8',label='SGVB')
         ax_.plot(lambdas,original_values,'--',color = 'black', label = 'Original values',alpha=0.5)
         ax_.set_xticks(lambdas,['412.5','445.5','490','510','555'])
-        ax_.set_xlabel('Wavelenght [nm]',fontsize=15)
-        ax_.set_ylabel('$b_{phy}$ $[\\text{m}^2\\text{(mgChl)}^{-1})$',fontsize=15)
-        ax_.tick_params(axis='y', labelsize=15)
-        ax_.tick_params(axis='x', labelsize=15)
+        ax_.set_xlabel('Wavelenght [nm]',fontsize=20)
+        ax_.set_ylabel('$b_{phy}$ $[\mathrm{m}^2\mathrm{(mgChl)}^{-1}]$',fontsize=20)
+        ax_.tick_params(axis='y', labelsize=20)
+        ax_.tick_params(axis='x', labelsize=20)
 
-        ax_.fill_between(lambdas, storical_scattering_ph_mean - storical_scattering_ph_std, storical_scattering_ph_mean + storical_scattering_ph_std,color='gray',zorder = 0.1,alpha=0.8,label='63% confidence interval')
+        ax_.fill_between(lambdas, storical_scattering_ph_mean - storical_scattering_ph_std,\
+                         storical_scattering_ph_mean + storical_scattering_ph_std,color='#bfbfbf',zorder = 0.1,alpha=0.8,label='63% confidence interval')
         ax_.plot(lambdas,storical_scattering_ph_mean,color = 'gray',label = 'mcmc mean value')
     
     def plot_track_backscattering_ph(ax_,constant,past_perturbation_factors_NN, past_perturbation_factors_lognormal,perturbation_factors_mean,perturbation_factors_std,cmap = plt.cm.Blues):
@@ -308,11 +320,12 @@ def plot_constants_2(perturbation_path = MODEL_HOME + '/plot_data/perturbation_f
         ax_.plot(lambdas,original_values,'--',color = 'black', label = 'Original values',alpha=0.5)
         ax_.set_xticks(lambdas,['412.5','445.5','490','510','555'])
         ax_.set_xlabel('Wavelenght [nm]',fontsize=20)
-        ax_.set_ylabel('$b_{b,phy}$ $[\\text{m}^2\\text{(mgChl)}^{-1})$',fontsize=20)
+        ax_.set_ylabel('$b_{b,phy}$ $[\mathrm{m}^2\mathrm{(mgChl)}^{-1}]$',fontsize=20)
         ax_.tick_params(axis='y', labelsize=20)
         ax_.tick_params(axis='x', labelsize=20)
 
-        ax_.fill_between(lambdas, storical_backscattering_ph_mean - storical_backscattering_ph_std, storical_backscattering_ph_mean + storical_backscattering_ph_std,color='gray',zorder = 0.1,alpha=0.8,label='63% confidence interval')
+        ax_.fill_between(lambdas, storical_backscattering_ph_mean - storical_backscattering_ph_std,\
+                         storical_backscattering_ph_mean + storical_backscattering_ph_std,color='#bfbfbf',zorder = 0.1,alpha=0.8,label='63% confidence interval')
         ax_.plot(lambdas,storical_backscattering_ph_mean,color = 'gray',label = 'mcmc mean value')
 
         
@@ -354,9 +367,9 @@ def correlation_matrix(num_runs,mcmc_runs,plot=True,table=False):
         mcmc_runs_[:,i] = data[:,:,i].flatten()
 
     mcmc_runs_dataframe = pd.DataFrame()
-    ticks = ['${a_{PH}}$','${b_{phy,T}}$','${b_{phy,\\text{Int}}}$','${b_{b,phy,T}}$','${b_{b,phy,\\text{Int}}}$','${d_{\\text{CDOM}}}$','${S_{\\text{CDOM}}}$','${Q_a}$','${Q_b}$',\
-                  '${\Theta^{\\text{min}}_{\\text{chla}}}$','${\Theta^{\\text{0}}_{\\text{chla}}}$',\
-                  '${\\beta}$','${\sigma}$','${b_{b,\\text{NAP}}}$']
+    ticks = ['${a_{PH}}$','${b_{phy,T}}$','${b_{phy,\mathrm{Int}}}$','${b_{b,phy,T}}$','${b_{b,phy,\mathrm{Int}}}$','${d_{\mathrm{CDOM}}}$','${S_{\mathrm{CDOM}}}$','${Q_a}$','${Q_b}$',\
+                  '${\Theta^{\\text{min}}_{\mathrm{chla}}}$','${\Theta^{\mathrm{0}}_{\mathrm{chla}}}$',\
+                  '${\\beta}$','${\sigma}$','${b_{b,\mathrm{NAP}}}$']
     for i,tick in enumerate(ticks):
         mcmc_runs_dataframe[tick] = mcmc_runs_[:,i]
     
@@ -494,8 +507,6 @@ def mcmc():
 if __name__ == '__main__':
 
     #mcmc()
-
-
     
     data_dir = MODEL_HOME + '/npy_data'
 
@@ -545,8 +556,8 @@ if __name__ == '__main__':
 
     perturbation_factors = torch.ones(14)
     
-    #sensitivity_boxplot(jacobian_rrs,jacobian_kd,jacobian_bbp,rrs_hat,kd_hat,bbp_hat,perturbation_factors,X,\
-    #                        title='Sensitivity of the parameters with the literature values')
+    sensitivity_boxplot(jacobian_rrs,jacobian_kd,jacobian_bbp,rrs_hat,kd_hat,bbp_hat,perturbation_factors,X,\
+                            title='Sensitivity of the parameters with the literature values')
 
 
     ################MCMC#############

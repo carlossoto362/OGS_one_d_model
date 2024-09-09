@@ -667,7 +667,7 @@ class RRS_loss(nn.Module):
         super(RRS_loss, self).__init__()
         """
         Class to evaluate the loss function RRS_loss = -2log(p(z|x,y)), minus the log posterior distribution of the latent variable z=(chla,nap,cdom). 
-        p(z|x,y) uses a gaussian likelihood, and a gaussian prior. 
+        p(z|x,y) uses a Gaussian likelihood, and a Gaussian prior. 
         parameters:
           x_a: mean value of the prior values for chla, nap and cdom, with dimension (3).
           s_a: covariance matrix of the prior for chla, nap and cdom, dimension (3,3).

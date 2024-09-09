@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+import matplotlib
+matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import math
 import numpy as np
@@ -288,7 +290,7 @@ def plot_kd(input_data_path = MODEL_HOME + '/results_bayes_lognormal_logparam',y
 
     for i,lam in enumerate(lambdas_names):
         columns.append(('kd_'+ lam,'kd_output_' + lam,'delta_kd_output_'+lam,'kd_outputVAE_'+lam))
-        names.append('$kd_{'+lambdas_values[i]+'} [\\text{m}^{-1}$]')
+        names.append('$kd_{'+lambdas_values[i]+'} [\mathrm{m}^{-1}$]')
         labels.append((*labels_names,*labels_names,'Generative Neural Network Output'))
 
 
@@ -366,15 +368,15 @@ def plot_chla(input_data_path = MODEL_HOME + '/results_bayes_lognormal_logparam'
 
     
     columns.append(('chla','chla_output','delta_chla_output','chla_outputVAE'))
-    names.append('$\\text{Chl-a } [\\text{mg}\\text{m}^{-3}]$')
+    names.append('$\mathrm{Chl-a } [\mathrm{mg}\mathrm{m}^{-3}]$')
     labels.append((*labels_names,*labels_names,'Generative Neural Network Output'))
 
     columns.append(('NAP','NAP_output','delta_NAP_output','NAP_outputVAE'))
-    names.append('$\\text{NAP } [\\text{mg} \\text{m}^{-3}]$')
+    names.append('$\mathrm{NAP } [\mathrm{mg} \mathrm{m}^{-3}]$')
     labels.append((*labels_names,*labels_names,'Generative Neural Network Output'))
 
     columns.append(('CDOM','CDOM_output','delta_CDOM_output','CDOM_outputVAE'))
-    names.append('$\\text{CDOM } [\\text{mg}\\text{m}^{-3}]$')
+    names.append('$\mathrm{CDOM } [\mathrm{mg}\mathrm{m}^{-3}]$')
     labels.append((*labels_names,*labels_names,'Generative Neural Network Output'))
 
     plot_parallel(data,columns,names,labels,statistics = statistics,histogram=False,date_init = date_init,shadow_error = True,num_cols=num_cols,\
@@ -460,7 +462,7 @@ def comparison_alphas():
     ax[0].axvline(4.87,linestyle='--',color='red')
     ax[1].axvline(4.87,linestyle='--',color='red')
     ax[2].axvline(4.87,linestyle='--',color='red')
-    ax[2].text(4.88,1,'$\\text{argmin}_{\\alpha}(\mathbf{L}$)',color=colors[5])
+    ax[2].text(4.88,1,'$\mathrm{argmin}_{\\alpha}(\mathbf{L}$)',color=colors[5])
 
     ax[0].text(-0.1,1.05,'(a)',transform = ax[0].transAxes)
     ax[1].text(-0.1,1.05,'(b)',transform = ax[1].transAxes)
@@ -570,8 +572,8 @@ def plot_scaterplot(test_indexes , vae_path = MODEL_HOME + '/results_VAE_VAEpara
     data_1 = plot_one_line(axs[0,0],np.exp(data['chla']),np.exp(data['chla_un_output']),color='#004D40',marker='v',label = 'MAP Unperturbed param')
     axs[0,0].plot(np.linspace(np.min(data_1),np.max(data_1),20),np.linspace(np.min(data_1),np.max(data_1),20),alpha=0.3,lw=3,label='Perfect Linear Correlation',color ='gray',zorder=50)
     
-    axs[0,0].set_xlabel('$Chl-a$ in-situ $[\\text{mg}\\text{m}^{-3}]$')
-    axs[0,0].set_ylabel('$Chl-a$ computed $[\\text{mg}\\text{m}^{-3}]$')
+    axs[0,0].set_xlabel('$Chl-a$ in-situ $[\mathrm{mg}\mathrm{m}^{-3}]$')
+    axs[0,0].set_ylabel('$Chl-a$ computed $[\mathrm{mg}\mathrm{m}^{-3}]$')
     axs[0,0].legend()
     axs[0,0].text(-0.1,1.05,'(a)',transform = axs[0,0].transAxes,fontsize='20')
 
@@ -628,9 +630,9 @@ def plot_constants_1(perturbation_path = MODEL_HOME + '/plot_data/perturbation_f
 
 
 
-    names = ['$d_{\\text{CDOM}}$ [$\\text{m}^2(\\text{mgCDOM})^{-1}$]','$S_{\\text{CDOM}}$ [nm]','$q_1$','$q_2$',\
-             '$\Theta^{\\text{min}}_{\\text{chla}}$ [$\\text{mgChla}\\text{(mgC)}^{-1}$]','$\Theta^{\\text{0}}_{\\text{chla}}$  [$\\text{mgChla}\\text{(mgC)}^{-1}$]',\
-             '$\\beta$ [$\\text{mmol}\\text{m}^{-2}\\text{s}^{-1}$]','$\sigma$  [$\\text{mmol}\\text{m}^{-2}\\text{s}^{-1}$]','$b_{b,\\text{NAP}}$']
+    names = ['$d_{\mathrm{CDOM}}$ [$\mathrm{m}^2(\mathrm{mgCDOM})^{-1}$]','$S_{\mathrm{CDOM}}$ [nm]','$q_1$','$q_2$',\
+             '$\Theta^{\mathrm{min}}_{\mathrm{chla}}$ [$\mathrm{mgChla}\mathrm{(mgC)}^{-1}$]','$\Theta^{\mathrm{0}}_{\mathrm{chla}}$  [$\mathrm{mgChla}\mathrm{(mgC)}^{-1}$]',\
+             '$\\beta$ [$\mathrm{mmol}\mathrm{m}^{-2}\mathrm{s}^{-1}$]','$\sigma$  [$\mathrm{mmol}\mathrm{m}^{-2}\mathrm{s}^{-1}$]','$b_{b,\mathrm{NAP}}$']
     print((constants_history_lognormal[0,0] - constants_history_lognormal[-1,0]).numpy(),(constants_history_NN[0,0] - constants_history_NN[-1,0]).numpy())
     percentages = np.array([np.min( [np.abs((constants_history_lognormal[0,i] - constants_history_lognormal[-1,i]).numpy()),\
                                      np.abs((constants_history_NN[0,i] - constants_history_NN[-1,i]).numpy())]   )/np.max( [np.abs((constants_history_lognormal[0,i] - constants_history_lognormal[-1,i]).numpy()),\
@@ -689,7 +691,7 @@ def plot_constants_2(perturbation_path = '/Users/carlos/Documents/OGS_one_d_mode
         ax_.plot(lambdas,storical_absortion_ph_lognormal[:,0],'--',color = 'gray', label = 'Original values',alpha=0.5)
         ax_.set_xticks(lambdas,['412.5','442.5','490','510','555'])
         ax_.set_xlabel('Wavelenght [nm]',fontsize=10)
-        ax_.set_ylabel('$a_{PH}$ $[\\text{m}^2\\text{(mgChl)}^{-1}]$',fontsize=10)
+        ax_.set_ylabel('$a_{PH}$ $[\mathrm{m}^2\mathrm{(mgChl)}^{-1}]$',fontsize=10)
         ax_.tick_params(axis='y', labelsize=10)
         ax_.tick_params(axis='x', labelsize=10)
     
@@ -709,7 +711,7 @@ def plot_constants_2(perturbation_path = '/Users/carlos/Documents/OGS_one_d_mode
         ax_.plot(lambdas,storical_scattering_ph_lognormal[:,0],'--',color = 'gray', label = 'Original values',alpha=0.5)
         ax_.set_xticks(lambdas,['412.5','445.5','490','510','555'])
         ax_.set_xlabel('Wavelenght [nm]',fontsize=10)
-        ax_.set_ylabel('$b_{PH}$ $[\\text{m}^2\\text{(mgChl)}^{-1})$',fontsize=10)
+        ax_.set_ylabel('$b_{PH}$ $[\mathrm{m}^2\mathrm{(mgChl)}^{-1})$',fontsize=10)
         ax_.tick_params(axis='y', labelsize=10)
         ax_.tick_params(axis='x', labelsize=10)
     
@@ -732,7 +734,7 @@ def plot_constants_2(perturbation_path = '/Users/carlos/Documents/OGS_one_d_mode
         
         ax_.set_xticks(lambdas,['412.5','445.5','490','510','555'])
         ax_.set_xlabel('Wavelenght [nm]',fontsize=10)
-        ax_.set_ylabel('$b_{b,PH}$ $[\\text{m}^2\\text{(mgChl)}^{-1}]$',fontsize=10)
+        ax_.set_ylabel('$b_{b,PH}$ $[\mathrm{m}^2\mathrm{(mgChl)}^{-1}]$',fontsize=10)
         ax_.tick_params(axis='y', labelsize=10)
         ax_.tick_params(axis='x', labelsize=10)
 
@@ -833,7 +835,7 @@ indexes = ['(a)','(b)','(c)','(d)','(e)','(f)','(g)','(h)','(i)','(j)','(k)']
 
 labels_names=['In situ data','Bayesian MAP output and Uncertainty']
 columns.append(('chla','chla_log_output','delta_chla_log_output','chla_VAE_output'))
-names.append('$\\text{Chl-a } [\\text{mg}\\text{m}^{-3}]$')
+names.append('$\mathrm{Chl-a } [\mathrm{mg}\mathrm{m}^{-3}]$')
 labels.append((*labels_names,*labels_names,'Generative Neural Network Output'))
 
 
