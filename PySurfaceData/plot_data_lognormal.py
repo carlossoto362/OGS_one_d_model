@@ -24,7 +24,12 @@ from ModelOnePointFive import *
 
 import warnings
 
-MODEL_HOME = '/Users/carlos/Documents/OGS_one_d_model'
+if 'OGS_ONE_D_HOME_PATH' in os.environ:
+    MODEL_HOME = HOME_PATH =  os.environ["OGS_ONE_D_HOME_PATH"]
+else:
+    
+    print("Missing local variable OGS_ONE_D_HOME_PATH. \nPlease add it with '$:export OGS_ONE_D_HOME_PATH=path/to/ogs/one/d/model'.")
+    sys.exit()
 
 def data_dataframe(data_path,which='all'):
     data = customTensorData(data_path=data_path,which=which,per_day = False,randomice=False)
