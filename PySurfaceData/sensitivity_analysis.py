@@ -2,8 +2,6 @@
 
 import Forward_module as fm
 import read_data_module as rdm
-import matplotlib as mpl
-mpl.use('TkAgg')
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -505,6 +503,9 @@ def mcmc():
 
 
 if __name__ == '__main__':
+
+    import matplotlib as mpl
+    mpl.use('TkAgg')
 
     #mcmc()
     

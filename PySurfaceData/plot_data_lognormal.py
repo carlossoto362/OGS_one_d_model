@@ -1,6 +1,5 @@
 #!/usr/bin/env python
-import matplotlib
-matplotlib.use('TkAgg')
+
 
 import matplotlib.pyplot as plt
 import math
@@ -757,6 +756,8 @@ def plot_constants_2(perturbation_path = '/Users/carlos/Documents/OGS_one_d_mode
         
 
 if __name__ == "__main__":
+    import matplotlib
+    matplotlib.use('TkAgg')
     #comparison_alphas()
 
     #plt.close()
