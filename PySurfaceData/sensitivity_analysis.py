@@ -504,8 +504,6 @@ def mcmc():
 
 if __name__ == '__main__':
 
-    #import matplotlib as mpl
-    #mpl.use('TkAgg')
 
     #mcmc()
     

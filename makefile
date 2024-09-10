@@ -16,7 +16,7 @@ create_venv:
 		echo "Using the current directory"; \
 	else \
 		mkdir -p "$$ENVDIR"; \
-		python3 -m venv "$$ENVDIR/OGS_env"; \
+		python3.9 -m venv "$$ENVDIR/OGS_env"; \
 		echo "Virtual environment created in $$ENVDIR/OGS_env"; \
 	fi; \
 	make add_bashrc_line ENVDIR=$$ENVDIR
@@ -31,7 +31,7 @@ setup: requirements.txt
 	$(ENVDIR)/OGS_env/bin/pip install networkx==2.8.8
 	$(ENVDIR)/OGS_env/bin/pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 	$(ENVDIR)/OGS_env/bin/pip install -r requirements.txt
-	cp -r ./PySurfaceData $(ENVDIR)/OGS_env/lib/$(PYTHON_VERSION)/site-packages/
+	cp -r ./PySurfaceData $(ENVDIR)/OGS_env/lib/python3.9/site-packages/
 	@echo run 'source $(ENVDIR)/OGS_env/bin/activate' for activating OGS env, 'deactivate' for deactivating it. 
 	@echo also run 'source $(SHRC)' to let know to the scripts where is the home directory of OGS. 
 
