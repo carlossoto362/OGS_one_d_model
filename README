@@ -10,6 +10,6 @@ The make file has being tested only in a computer with Ubuntu 20.04.6 LTS bulsay
 python3 and pip3 installed. It creates a virtual environment for python3, and a variable
 for the home page. If make doesn't work, the python3 libraries for which the
 codes have been tested are in requirements.txt. Also, you need to add the PySurfaceData to the
-python path, one option would be running $python3 -c 'sys.path.insert(1, "./PySurfaceData")'.
+python path, one option would be running $python3 -c 'import sys; sys.path.insert(1, "./PySurfaceData")'.
 Finally, some modules require the home path added as a local variable, for example, run
 "export OGS_ONE_D_HOME_PATH=$(PWD)".

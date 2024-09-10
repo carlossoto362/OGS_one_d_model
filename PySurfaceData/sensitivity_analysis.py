@@ -504,8 +504,8 @@ def mcmc():
 
 if __name__ == '__main__':
 
-    import matplotlib as mpl
-    mpl.use('TkAgg')
+    #import matplotlib as mpl
+    #mpl.use('TkAgg')
 
     #mcmc()
     
@@ -556,7 +556,6 @@ if __name__ == '__main__':
     rrs_hat = np.load(MODEL_HOME + '/results_bayes_lognormal_unperturbed/RRS_hat.npy')
 
     perturbation_factors = torch.ones(14)
-    
     sensitivity_boxplot(jacobian_rrs,jacobian_kd,jacobian_bbp,rrs_hat,kd_hat,bbp_hat,perturbation_factors,X,\
                             title='Sensitivity of the parameters with the literature values')
 
