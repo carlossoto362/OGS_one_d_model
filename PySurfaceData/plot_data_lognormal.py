@@ -294,7 +294,7 @@ def plot_kd(input_data_path = MODEL_HOME + '/results_bayes_lognormal_logparam',y
 
     for i,lam in enumerate(lambdas_names):
         columns.append(('kd_'+ lam,'kd_output_' + lam,'delta_kd_output_'+lam,'kd_outputVAE_'+lam))
-        names.append('$kd_{'+lambdas_values[i]+'} [\mathrm{m}^{-1}$]')
+        names.append('$kd_{'+lambdas_values[i]+'}$ $[\mathrm{m}^{-1}$]')
         labels.append((*labels_names,*labels_names,'Generative Neural Network Output'))
 
 
@@ -334,7 +334,7 @@ def plot_bbp(input_data_path = MODEL_HOME + '/results_bayes_lognormal_logparam',
     for i,lam in enumerate(lambdas_names):
         if (i == 1) or (i == 2) or (i ==4):
             columns.append(('bbp_'+ lam,'bbp_output_' + lam,'delta_bbp_output_'+lam,'bbp_outputVAE_' + lam))
-            names.append('$b_{b,p,'+lambdas_values[i]+'} [m^{-1}$]')
+            names.append('$b_{b,p,'+lambdas_values[i]+'}$ $[m^{-1}]$')
             labels.append((*labels_names,*labels_names,'Generative Neural Network Output'))
 
     plot_parallel(data,columns,names,labels,statistics = statistics,histogram=False,date_init = date_init,shadow_error = True,num_cols=num_cols,\
@@ -372,15 +372,15 @@ def plot_chla(input_data_path = MODEL_HOME + '/results_bayes_lognormal_logparam'
 
     
     columns.append(('chla','chla_output','delta_chla_output','chla_outputVAE'))
-    names.append('$\mathrm{Chl-a } [\mathrm{mg}\mathrm{m}^{-3}]$')
+    names.append('$\mathrm{Chl-a }$ $[\mathrm{mg}\mathrm{m}^{-3}]$')
     labels.append((*labels_names,*labels_names,'Generative Neural Network Output'))
 
     columns.append(('NAP','NAP_output','delta_NAP_output','NAP_outputVAE'))
-    names.append('$\mathrm{NAP } [\mathrm{mg} \mathrm{m}^{-3}]$')
+    names.append('$\mathrm{NAP }$ $[\mathrm{mg} \mathrm{m}^{-3}]$')
     labels.append((*labels_names,*labels_names,'Generative Neural Network Output'))
 
     columns.append(('CDOM','CDOM_output','delta_CDOM_output','CDOM_outputVAE'))
-    names.append('$\mathrm{CDOM } [\mathrm{mg}\mathrm{m}^{-3}]$')
+    names.append('$\mathrm{CDOM }$ $[\mathrm{mg}\mathrm{m}^{-3}]$')
     labels.append((*labels_names,*labels_names,'Generative Neural Network Output'))
 
     plot_parallel(data,columns,names,labels,statistics = statistics,histogram=False,date_init = date_init,shadow_error = True,num_cols=num_cols,\
@@ -667,7 +667,7 @@ def plot_constants_1(perturbation_path = MODEL_HOME + '/plot_data/perturbation_f
 
     plt.show()
 
-def plot_constants_2(perturbation_path = '/Users/carlos/Documents/OGS_one_d_model/plot_data/perturbation_factors',vae_name = 'perturbation_factors_history_VAE.npy'):
+def plot_constants_2(perturbation_path = './plot_data/perturbation_factors',vae_name = 'perturbation_factors_history_VAE.npy'):
     
     perturbation_factors_history_NN = torch.tensor(np.load(perturbation_path + '/'+vae_name)).to(torch.float32)[:400]
     perturbation_factors_history_lognormal = torch.tensor(np.load(perturbation_path + '/perturbation_factors_history_AM_test.npy')).to(torch.float32)[:400]
@@ -777,7 +777,7 @@ if __name__ == "__main__":
 
 
     plot_constants_2(vae_name = 'perturbation_factors_history_CVAE_chla_centered.npy')
-    print(asdfadsf)
+    
     plot_chla(input_data_path = MODEL_HOME + '/results_bayes_lognormal_VAEparam',\
               figname = MODEL_HOME + '/plot_data/chla_lognormal_data_chla_centered.pdf',save=True,date_init = datetime(year=2005,month=1,day=1),\
               statistics=False, num_cols = 1,labels_names=['In situ data','Bayesian MAP output and Uncertainty'],ylim=[],figsize=(17,12),\
@@ -809,7 +809,7 @@ if __name__ == "__main__":
 
     data['NAP'] = np.nan
     data['CDOM'] = np.nan
-    second_run = read_second_run(MODEL_HOME + '/results_bayes_lognormal_mcmcparam',include_uncertainty=True,abr='log_output')
+    second_run = read_second_run(MODEL_HOME + '/results_bayes_lognormal_mcmcParam',include_uncertainty=True,abr='log_output')
     data = second_run.merge(data,how='right',on='date')
     second_run = read_second_run(MODEL_HOME + '/results_bayes_lognormal_VAEparam',include_uncertainty=True,abr='logNN_output')
     data = second_run.merge(data,how='right',on='date')
