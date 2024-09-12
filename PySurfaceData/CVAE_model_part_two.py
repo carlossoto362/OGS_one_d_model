@@ -51,9 +51,11 @@ class NN_second_layer(nn.Module):
 
     def __init__(self,precision = torch.float32,output_layer_size_mean=3,number_hiden_layers_mean = 1,\
                  dim_hiden_layers_mean = 20,alpha_mean=1,dim_last_hiden_layer_mean = 1,output_layer_size_cov=9,number_hiden_layers_cov = 1,\
-                 dim_hiden_layers_cov = 20,alpha_cov=1,dim_last_hiden_layer_cov = 1,x_mul=None,x_add=None,y_mul=None,y_add=None,constant = None,model_dir='/Users/carlos/Documents/OGS_one_d_model/VAE_model',my_device='cpu' ):
+                 dim_hiden_layers_cov = 20,alpha_cov=1,dim_last_hiden_layer_cov = 1,x_mul=None,x_add=None,\
+                 y_mul=None,y_add=None,constant = None,model_dir='/Users/carlos/Documents/OGS_one_d_model/VAE_model',my_device='cpu',chla_centered=True ):
         super().__init__()
 
+        self.chla_centered = chla_centered
         self.LogSigmoid = nn.LogSigmoid() # for claping
         self.flatten = nn.Flatten()
 
@@ -142,7 +144,10 @@ class NN_second_layer(nn.Module):
 
     def forward(self, image):
         x = self.first_layer(image)
-        mu_z = self.linear_celu_stack_mean(x).flatten(1) + torch.column_stack((x[:,0,0],x[:,0,0],x[:,0,0])) # mean_z = NN1 + epsilon_NN2
+        mu_z = self.linear_celu_stack_mean(x).flatten(1)
+        if self.chla_centered == True:
+            mu_z += torch.column_stack((x[:,0,0],x[:,0,0],x[:,0,0])) # mean_z = NN1 + epsilon_NN2
+            
         #mu_z = self.LogSigmoid(mu_z - 1.3) + 1.3 #analitical solution to clap the value to 1.3 (no mean densities greater than 20 g/m3)
         ###the output of linear_celu_stack_cov_z is the Cholesky decomposition of the cov matrix. 
         Cholesky_z = torch.tril(self.linear_celu_stack_cov(x).flatten(1).reshape((x.shape[0],3,3)))/10
