@@ -7,6 +7,18 @@ Within the New Copernicus Capability for Trophic Ocean Networks (NECCTON) projec
  an example in colab in https://colab.research.google.com/drive/1ROAXHcGPcubT5lr_1n1row_cYhTk8Qd-?usp=sharing.
  and https://colab.research.google.com/drive/1wJwG-DsJ63Qy3z-jyIuX3tcyKxfrGlwd?usp=sharing
 
+ The modules in PySurfaceData containe all the scripts used for the present work. 
+ Jacobians contained the derivatives of the functions bbp, kd and RRS with respect of the parameters "perturbation_factors" for all the storical data available. 
+ VAE_model containes the state_dict of the NN models, the final used was model_second_part_chla_centered.pt, which uses model_first_part.pt. 
+ mcmc has all the runs for the mcmc algorithm. 
+ npy_data has the historical data. 
+ plot_data has plots and some output data used to create plots. 
+ All the folders starting with result_*,  have the output for different runds, using bayes, or using a neural network. The results of the NN used are actually in VAE_model/results_VAE_VAEparam_chla
+	while the bayes results that were used at the end are results_bayes_lognormal_unperturbed, results_bayes_lognormal_VAEparam, results_bayes_lognormal_mcmcParam
+ ModelAvailability.ipynb has the the colab with an example of how to load the data, how to run the bayes optimization, and how to plot the results. 
+ cst.csv and cte_lambda.csv have the parameters from the literature. 
+ requirements have the python3.9 libraries required, except from the pytorch releted ones and the networkx. 
+ 
 
 ##########################################################################################
 The make file has being tested only in a computer with Ubuntu 20.04.6 LTS bulsay, with
