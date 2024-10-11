@@ -35,9 +35,9 @@ import torch.distributed as dist
 import sys
 
 import warnings
-import Forward_module as fm
-import read_data_module as rdm
-from CVAE_model_part_one import NN_first_layer
+import PySurfaceData.Forward_module as fm
+import PySurfaceData.read_data_module as rdm
+from PySurfaceData.CVAE_model_part_one import NN_first_layer
 from torch.linalg import inv 
 
 if 'OGS_ONE_D_HOME_PATH' in os.environ:
