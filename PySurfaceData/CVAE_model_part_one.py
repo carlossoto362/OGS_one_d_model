@@ -38,8 +38,8 @@ import torch.distributed as dist
 import sys
 
 import warnings
-import Forward_module as fm
-import read_data_module as rdm
+import PySurfaceData.Forward_module as fm
+import PySurfaceData.read_data_module as rdm
 
 
 class NN_first_layer(nn.Module):
