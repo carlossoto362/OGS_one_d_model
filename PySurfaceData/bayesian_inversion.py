@@ -10,13 +10,13 @@ from torch.utils.data import DataLoader,random_split
 import time
 import sys
 import seaborn as sb
-import Forward_module as fm
-import read_data_module as rdm
+import PySurfaceData.Forward_module as fm
+import PySurfaceData.read_data_module as rdm
 from torch.utils.data import DataLoader
 from multiprocessing.pool import Pool
 import matplotlib.colors as mcolors
 from torch import nn
-from CVAE_model_part_two import NN_second_layer
+from PySurfaceData.CVAE_model_part_two import NN_second_layer
 
 
 if 'OGS_ONE_D_HOME_PATH' in os.environ:
